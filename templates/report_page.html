@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background-image:
+            linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
+            url("/static/1280_720_2.jpeg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        .form-container {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-group label .required {
+            color: #e74c3c;
+            margin-left: 2px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-group select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+
+        .health-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .health-option {
+            position: relative;
+        }
+
+        .health-option input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .health-option label {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            font-weight: 500;
+        }
+
+        .health-option label:hover {
+            border-color: #6178db;
+            background: white;
+        }
+
+        .health-option input:checked + label {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .health-option .icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .success-message .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .success-message h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .success-message p {
+            color: #666;
+        }
+
+        .success-message .back-btn {
+            margin-top: 30px;
+            padding: 12px 30px;
+            background: #43e97b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .success-message .back-btn:hover {
+            background: #38d96d;
+        }
+
+        @media (max-width: 480px) {
+            .health-options {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-container {
+                padding: 25px;
+            }
+        }
+
+        .button {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: #43e97b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Report Animal Findings</h1>
+            <p>Report the animal findings you have discovered</p>
+        </div>
+
+        <div class="form-container" id="formContainer">
+            <form id="animalReportForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Animal Type <span class="required">*</span></label>
+                    <select name="animalType" required>
+                        <option value="">Please select an animal type</option>
+                        <optgroup label="Domestic Animals">
+                            <option value="dog">🐕 Dog</option>
+                            <option value="cat">🐈 Cat</option>
+                            <option value="rabbit">🐰 Rabbit</option>
+                            <option value="hamster">🐹 Hamster</option>
+                            <option value="bird">🐦 Bird</option>
+                            <option value="fish">🐠 Fish</option>
+                        </optgroup>
+                        <optgroup label="Wild Animals">
+                            <option value="squirrel">🐿️ Squirrel</option>
+                            <option value="hedgehog">🦔 Hedgehog</option>
+                            <option value="deer">🦌 Deer</option>
+                            <option value="fox">🦊 Fox</option>
+                            <option value="wild-bird">🦅 Wild Bird</option>
+                            <option value="snake">🐍 Snake</option>
+                        </optgroup>
+                        <optgroup label="Other">
+                            <option value="other">Other Animals</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Please enter the animal if it is not in the list</label>
+                    <input type="text" name="customAnimal" placeholder="Enter the animal type">
+                </div>
+
+                <div class="form-group">
+                    <label>Location <span class="required">*</span></label>
+                    <input type="text" name="address" placeholder="Please enter the detailed address" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Animal Quantity <span class="required">*</span></label>
+                    <input type="number" name="quantity" min="1" max="999" placeholder="Please enter the quantity" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Health Status <span class="required">*</span></label>
+                    <div class="health-options">
+                        <div class="health-option">
+                            <input type="radio" id="healthy" name="healthStatus" value="healthy" required>
+                            <label for="healthy">
+                                <span class="icon">💚</span> Healthy
+                            </label>
+                        </div>
+                        <div class="health-option">
+                            <input type="radio" id="injured" name="healthStatus" value="injured">
+                            <label for="injured">
+                                <span class="icon">🩹</span> Hurt
+                            </label>
+                        </div>
+                        <div class="health-option">
+                            <input type="radio" id="sick" name="healthStatus" value="sick">
+                            <label for="sick">
+                                <span class="icon">🤒</span> Sick
+                            </label>
+                        </div>
+                        <div class="health-option">
+                            <input type="radio" id="unknown" name="healthStatus" value="unknown">
+                            <label for="unknown">
+                                <span class="icon">❓</span> Not sure
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="img">Select image:</label>
+                    <input type="file" id="img" name="img" accept="image/*">
+                </div>
+
+                <div class="form-group">
+                    <label>Detailed Description</label>
+                    <textarea name="details" placeholder="Please describe the animal's physical characteristics, behavior, and the specific circumstances of when it was found..."></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">Submit Report</button>
+            </form>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            <div class="icon">✅</div>
+            <h2>Submission Successful!</h2>
+            <p id="resultText">Thank you for your report. We will process it as soon as possible.</p>
+            <div id="resultImageContainer"></div>
+            <br>
+            <button class="back-btn" onclick="resetForm()">Submit New Report</button>
+            <a href="homepage.html">
+                <button class="button">Go to homepage</button>
+            </a>
+        </div>
+    </div>
+
+    <!-- FIX 1: Script is now correctly placed at the bottom of <body>, outside all divs -->
+    <script>
+        // FIX 2: Submit handler is properly attached to the form via addEventListener
+        document.getElementById('animalReportForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); // FIX 3: e now correctly refers to the submit event
+
+            const form = this;
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                // FIX 4: Backend now returns result.data, so we read it here correctly
+                if (result.status === "success") {
+                    const data = result.data;
+
+                    document.getElementById('formContainer').style.display = 'none';
+                    document.getElementById('successMessage').style.display = 'block';
+
+                    document.getElementById('resultText').innerText =
+                        `Animal: ${data.animal}\nLocation: ${data.location}\nQuantity: ${data.quantity}\nHealth: ${data.health}\nDetails: ${data.details}`;
+
+                    // Dynamically inject <img> only when an image was uploaded.
+                    // Never leave a srcless <img> in the DOM — browsers show a broken icon.
+                    const container = document.getElementById('resultImageContainer');
+                    container.innerHTML = '';
+                    if (data.image) {
+                        const imgEl = document.createElement('img');
+                        imgEl.src = '/uploads/' + data.image;  // data.image is just the filename e.g. 'rabbit.jpg'
+                        imgEl.style.cssText = 'max-width:100%; margin-top:10px; border-radius:10px;';
+                        imgEl.onerror = function() {
+                            container.innerHTML = '<p style="color:#e74c3c;font-size:13px;">⚠️ Image could not be loaded.</p>';
+                        };
+                        container.appendChild(imgEl);
+                    }
+                } else {
+                    alert("Error: " + result.message);
+                }
+            } catch (error) {
+                alert("Something went wrong!");
+                console.error(error);
+            }
+        });
+
+        function resetForm() {
+            document.getElementById('animalReportForm').reset();
+            document.getElementById('formContainer').style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('resultImageContainer').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
