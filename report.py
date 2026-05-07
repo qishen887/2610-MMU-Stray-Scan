@@ -114,22 +114,19 @@ def submit():  # Receive the form, save the image, write a row to the DB.
 # Optional read endpoints for admin dashboard to list reports, view details, delete, or update status.
 
 @app.route('/reports', methods=['GET'])
-def get_reports():
-    """Return all reports, newest first."""
+def get_reports(): #Return all reports, newest first.
     reports = AnimalReport.query.order_by(AnimalReport.created_at.desc()).all()
     return jsonify({"status": "success", "data": [r.to_dict() for r in reports]})
 
 
 @app.route('/reports/<int:report_id>', methods=['GET'])
-def get_report(report_id):
-    """Return a single report by ID."""
+def get_report(report_id):  #Return a single report by ID.
     report = AnimalReport.query.get_or_404(report_id)
     return jsonify({"status": "success", "data": report.to_dict()})
 
 
 @app.route('/reports/<int:report_id>', methods=['DELETE'])
-def delete_report(report_id):
-    """Delete a report by ID."""
+def delete_report(report_id):   #Delete a report by ID.
     report = AnimalReport.query.get_or_404(report_id)
     db.session.delete(report)
     db.session.commit()

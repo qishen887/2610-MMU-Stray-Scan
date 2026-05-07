@@ -473,7 +473,7 @@
     # Sidebar
     <aside class="sidebar">
         <div class="sidebar-brand">
-            <h2>🐾 WildWatch</h2>
+            <h2>Cyberjaya Stray Scan</h2>
             <p>Admin Dashboard</p>
         </div>
         <nav class="sidebar-nav">
@@ -606,7 +606,7 @@
     let currentFilter = 'all';
     let activeReportId = null;
 
-    // ── Load all reports from API ──────────────────────────────────────────────
+    // Load all reports from API and render table
     async function loadReports() {
         document.getElementById('reportTable').innerHTML =
             '<tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr>';
@@ -623,7 +623,7 @@
         }
     }
 
-    // ── Sidebar stat counts ────────────────────────────────────────────────────
+    // Sidebar stat counts 
     function updateStats() {
         const count = s => allReports.filter(r => r.status === s).length;
         document.getElementById('countPending').textContent  = count('pending');
@@ -633,7 +633,7 @@
             `${allReports.length} total report${allReports.length !== 1 ? 's' : ''}`;
     }
 
-    // ── Filter tab ─────────────────────────────────────────────────────────────
+    // Filter tab
     function setFilter(filter, el) {
         currentFilter = filter;
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -641,7 +641,7 @@
         renderTable();
     }
 
-    // ── Render table rows ──────────────────────────────────────────────────────
+    //  Render table rows 
     function renderTable() {
         const filtered = currentFilter === 'all'
             ? allReports
@@ -687,7 +687,7 @@
         `).join('');
     }
 
-    // ── Open detail modal ──────────────────────────────────────────────────────
+    //  Open detail modal 
     function openModal(id) {
         const r = allReports.find(x => x.id === id);
         if (!r) return;
@@ -729,7 +729,7 @@
         activeReportId = null;
     }
 
-    // ── Update status (from table row buttons) ─────────────────────────────────
+    //  Update status (from table row buttons) 
     async function updateStatus(id, newStatus) {
         try {
             const res  = await fetch(`/reports/${id}/status`, {
@@ -754,7 +754,7 @@
         }
     }
 
-    // ── Update status from inside the modal ────────────────────────────────────
+    //  Update status from inside the modal 
     async function updateStatusFromModal(newStatus) {
         if (!activeReportId) return;
         await updateStatus(activeReportId, newStatus);
@@ -762,7 +762,7 @@
         openModal(activeReportId);
     }
 
-    // ── Toast notification ─────────────────────────────────────────────────────
+    // Toast notification 
     function showToast(msg, type = 'success') {
         const t = document.getElementById('toast');
         t.textContent = (type === 'success' ? '✓ ' : '✕ ') + msg;
