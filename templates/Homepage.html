@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Homepage</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header>
+<h1 class="brand-title">Welcome to Cyberjaya Stray Scan</h1>
+    <nav>
+      <button>About</button>
+      <button>Contact</button>
+      <button>Login</button>
+      <button>Register</button>
+    </nav>
+  </header>
+  <div id="map" style="width: 80%; max-width: 1000px; height: 500px; margin: 40px auto; border-radius: 15px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); border: 1px solid #ddd; position: relative; overflow: hidden;">
+    <button id="recenter-btn" style="position: absolute; top: 15px; right: 15px; z-index: 1000; padding: 10px 15px; background-color: white; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; font-family: Arial, sans-serif; font-weight: bold; color: #333; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" onmouseover="this.style.backgroundColor='#f4f4f4'" onmouseout="this.style.backgroundColor='white'">🏠 Reset to Center</button>
+</div>
+  <main>
+    <h2>Explore Our Services</h2>
+    <div style="margin-top: 20px;">
+      <button>Learn More</button>
+      <button>Get Started</button>
+    </div>
+  </main>
+<script>
+    // 1. Set a default center in case GPS is disabled
+    let defaultCenter = [2.9213, 101.6559];
+    let userInitialLocation = null; // To store the specific user GPS location
+    var currentMarker;
+
+    // 2. Initialize map
+    var map = L.map('map').setView(defaultCenter, 15);
+
+    // 3. Add Tile Layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 4. GEOLOCATION: Find user on load
+    map.locate({setView: true, maxZoom: 16});
+
+    // When GPS location is found
+    map.on('locationfound', function(e) {
+        // Save this as the "Initial Location" for this session
+        userInitialLocation = e.latlng;
+        
+        if (currentMarker) map.removeLayer(currentMarker);
+        
+        currentMarker = L.marker(userInitialLocation).addTo(map)
+            .bindPopup("<b>Found You!</b><br>This is your starting point.")
+            .openPopup();
+    });
+
+    // 5. FUNCTION: Recenter Button Logic
+    document.getElementById('recenter-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        
+        // Determine where to fly back to: User's GPS or Default Center?
+        let targetLocation = userInitialLocation ? userInitialLocation : defaultCenter;
+
+        map.flyTo(targetLocation, 16);
+        
+        if (currentMarker) map.removeLayer(currentMarker);
+        currentMarker = L.marker(targetLocation).addTo(map)
+            .bindPopup("<b>Returned to Start</b>")
+            .openPopup();
+    });
+
+    // 6. FUNCTION: Manual Click to adjust position
+    map.on('click', function(e) {
+        if (currentMarker) map.removeLayer(currentMarker);
+        currentMarker = L.marker(e.latlng).addTo(map)
+            .bindPopup("<b>New Spot Selected</b><br>" + e.latlng.lat.toFixed(4) + ", " + e.latlng.lng.toFixed(4))
+            .openPopup();
+    });
+
+    // 7. Map Render Fix
+    window.onload = function() {
+        setTimeout(() => { map.invalidateSize(); }, 500);
+    };
+</script>
+</body>
+</html>
