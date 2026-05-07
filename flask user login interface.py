@@ -5,11 +5,11 @@ app = Flask(__name__)
 app.secret_key = 'your_project_secret_key'  # Must be set to encrypt the session
 
 users = {
-    "admin@example.com": {
+    "admin@student.mmu.edu.my": {
         "password": generate_password_hash("admin123"), 
         "role": "admin"
     },
-    "user@example.com": {
+    "user@student.mmu.edu.my": {
         "password": generate_password_hash("user123"), 
         "role": "customer"
     }
@@ -71,6 +71,51 @@ def logout():
 @app.route('/register')
 def register_page():
     return render_template('signup.html') # 确保你有一个 signup.html 文件
+
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    email = request.form.get('email')
+    password = request.form.get('password')
+    confirm_password = request.form.get('confirm_password')
+
+    # 1. 基础验证
+    if not email or not password:
+        flash("Email and password are required.")
+        return redirect(url_for('register_page'))
+
+    if password != confirm_password:
+        flash("Passwords do not match!")
+        return redirect(url_for('register_page'))
+    
+# 2. 验证是否为 8 位数字
+    # .isdigit() 检查是否全是数字，len() 检查长度
+    if not (len(password) == 8):
+        flash("Format error: Password must be exactly 8 digits!")
+        return redirect(url_for('register_page'))
+    
+    # --- 新增：Email 后缀限制 ---
+    # 限制必须以 @student.mmu.edu.my 或 @mmu.edu.my 结尾
+    allowed_domains = ["@student.mmu.edu.my", "@mmu.edu.my"]
+    if not any(email.endswith(domain) for domain in allowed_domains):
+        flash("Access Denied: Please use your MMU student/staff email.")
+        return redirect(url_for('register_page'))
+        
+
+    # 2. 检查用户是否已存在
+    if email in users:
+        flash("Email already registered. Please login.")
+        return redirect(url_for('index'))
+
+    # 3. 哈希加密密码并存储 (默认角色设为 customer)
+    hashed_password = generate_password_hash(password)
+    users[email] = {
+        "password": hashed_password,
+        "role": "customer"
+    }
+
+    flash("Registration successful! Please login.")
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)
