@@ -1,90 +1,24 @@
 /* style.css */
-body, html {
+body {
   margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: Arial, sans-serif;
   background: linear-gradient(#f09c16, black);
-  background-attachment: fixed;
-  overflow: hidden;
-}
-
-.app-container {
-  display: flex;
-  height: 100vh;
-  width: 100%;
-}
-
-/* --- SIDEBAR STYLE (Collapsible) --- */
-#sidebar {
-  width: 250px;
-  min-width: 250px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 20px 10px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
-  z-index: 1001;
-}
-
-#sidebar.collapsed {
-  width: 70px;
-  min-width: 70px;
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  padding: 15px;
-  cursor: pointer;
-  color: #333;
-  border-radius: 8px;
-  margin-bottom: 5px;
-  transition: background 0.2s;
-  overflow: hidden;
-}
-
-.sidebar-item:hover {
-  background-color: rgba(240, 156, 22, 0.1);
-}
-
-.sidebar-item span {
-  margin-left: 15px;
-  white-space: nowrap;
-  transition: opacity 0.2s;
-}
-
-#sidebar.collapsed .sidebar-item span {
-  opacity: 0;
-  display: none;
-}
-
-#sidebar.collapsed .sidebar-item {
-  justify-content: center;
-}
-
-.spacer {
-  flex: 1;
-}
-
-/* --- MAIN CONTENT AREA --- */
-#main-content {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  color: white;
+  min-height: 100vh;
 }
 
 header {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 15px 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  background-color: rgba(0, 0, 0, 0.1);
-  padding: 10px 20px;
-  border-radius: 10px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.8em;
 }
 
 nav {
@@ -93,14 +27,15 @@ nav {
 }
 
 button {
-  font-family: Consolas, monospace;
+  font-family: Consolas, "Liberation Mono", Courier, monospace;
   background-color: #fff;
   color: black;
   border: none;
   padding: 10px 20px;
+  font-size: 1em;
   border-radius: 5px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, transform 0.2s;
 }
 
 button:hover {
@@ -108,26 +43,23 @@ button:hover {
   transform: translateY(-2px);
 }
 
-/* --- MAP & FLOATING BUTTON --- */
-#map {
-  width: 100%;
-  height: 500px;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-  margin-bottom: 20px;
-  position: relative; /* CRITICAL for absolute positioning of children */
-  z-index: 1;
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 50px 20px;
 }
 
-#recenter-btn {
-  position: absolute; /* Floating inside map */
-  top: 15px;
-  right: 15px;
-  z-index: 1000; /* Stay above map layers */
-  padding: 10px 14px;
-  background: white;
-  color: black;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-weight: bold;
+footer {
+  background-color: rgba(0, 0, 0, 0.2);
+  text-align: center;
+  padding: 10px;
+  font-size: 0.9em;
+}
+
+.brand-title {
+  font-family: 'JetBrains Mono', monospace;
 }

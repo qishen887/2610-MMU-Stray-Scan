@@ -15,7 +15,7 @@
             font-family: Arial, Helvetica, sans-serif;
             background-image:
             linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
-            url(1280_720_2.jpeg);
+            url("/static/1280_720_2.jpeg");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -27,27 +27,28 @@
         .container {
             max-width: 600px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background-color: rgba(255, 255, 255, 0.9); /* 90% 不透明 */
+            backdrop-filter: blur(5px); /* 让背景模糊（高级感） */
             overflow: hidden;
         }
 
         .header {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
             padding: 30px;
             text-align: center;
         }
 
         .header h1 {
-            color: white;
+            color: black;
             font-size: 28px;
             font-weight: 700;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .header p {
-            color: rgba(255, 255, 255, 0.9);
+            color: black;
             margin-top: 8px;
             font-size: 14px;
         }
@@ -102,7 +103,7 @@
         .form-group select {
             cursor: pointer;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='[w3.org](http://www.w3.org/2000/svg)' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 16px center;
         }
@@ -243,13 +244,13 @@
         </div>
 
         <div class="form-container" id="formContainer">
-            <form id="animalReportForm">
+            <form id="animalReportForm" enctype="multipart/form-data">
                 <div class="form-group">
                     <label>Animal Type <span class="required">*</span></label>
                     <select name="animalType" required>
                         <option value="">Please select an animal type</option>
                         <optgroup label="Domestic Animals">
-                            <option value="dog">🐕 Dog  </option>
+                            <option value="dog">🐕 Dog</option>
                             <option value="cat">🐈 Cat</option>
                             <option value="rabbit">🐰 Rabbit</option>
                             <option value="hamster">🐹 Hamster</option>
@@ -270,9 +271,9 @@
                     </select>
                 </div>
 
-                <div class ="form-group">
+                <div class="form-group">
                     <label>Please enter the animal if it is not in the list</label>
-                    <input type = "text" name="customAnimal" placeholder="Enter the animal type">
+                    <input type="text" name="customAnimal" placeholder="Enter the animal type">
                 </div>
 
                 <div class="form-group">
@@ -314,12 +315,11 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="img">Select image:</label>
                     <input type="file" id="img" name="img" accept="image/*">
                 </div>
-
 
                 <div class="form-group">
                     <label>Detailed Description</label>
@@ -333,7 +333,9 @@
         <div class="success-message" id="successMessage">
             <div class="icon">✅</div>
             <h2>Submission Successful!</h2>
-            <p>Thank you for your report. We will process it as soon as possible.</p>
+            <p id="resultText">Thank you for your report. We will process it as soon as possible.</p>
+            <div id="resultImageContainer"></div>
+            <br>
             <button class="back-btn" onclick="resetForm()">Submit New Report</button>
             <a href="homepage.html">
                 <button class="button">Go to homepage</button>
@@ -342,24 +344,54 @@
     </div>
 
     <script>
-        document.getElementById('animalReportForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // 获取表单数据
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData.entries());
-            
-            console.log('提交的数据:', data);
-            
-            // 显示成功消息
-            document.getElementById('formContainer').style.display = 'none';
-            document.getElementById('successMessage').style.display = 'block';
+        document.getElementById('animalReportForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+
+            const form = this;
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    const data = result.data;
+
+                    document.getElementById('formContainer').style.display = 'none';
+                    document.getElementById('successMessage').style.display = 'block';
+
+                    document.getElementById('resultText').innerText =
+                        `Animal: ${data.animal}\nLocation: ${data.location}\nQuantity: ${data.quantity}\nHealth: ${data.health}\nDetails: ${data.details}`;
+
+                    const container = document.getElementById('resultImageContainer');
+                    container.innerHTML = '';
+                    if (data.image) {
+                        const imgEl = document.createElement('img');
+                        imgEl.src = '/uploads/' + data.image;  // data.image is just the filename e.g. 'rabbit.jpg'
+                        imgEl.style.cssText = 'max-width:100%; margin-top:10px; border-radius:10px;';
+                        imgEl.onerror = function() {
+                            container.innerHTML = '<p style="color:#e74c3c;font-size:13px;">⚠️ Image could not be loaded.</p>';
+                        };
+                        container.appendChild(imgEl);
+                    }
+                } else {
+                    alert("Error: " + result.message);
+                }
+            } catch (error) {
+                alert("Something went wrong!");
+                console.error(error);
+            }
         });
 
         function resetForm() {
             document.getElementById('animalReportForm').reset();
             document.getElementById('formContainer').style.display = 'block';
             document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('resultImageContainer').innerHTML = '';
         }
     </script>
 </body>
