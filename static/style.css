@@ -131,3 +131,57 @@ button:hover {
   border-radius: 8px;
   font-weight: bold;
 }
+/* Sidebar-style Settings Panel (No background dimming) */
+/* --- Settings Panel: Bottom-Left Version (Solid) --- */
+
+/* 1. Main Container: Positioned at bottom-left corner */
+/* --- Final Solid Settings Style --- */
+
+.settings-bottom-panel {
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    left: 280px;
+    width: 280px; /* Slightly slimmer */
+    z-index: 9999;
+}
+
+.solid-version {
+    background-color: #1e1e1e !important;
+    border: 1px solid #444; /* Thinner border */
+    border-radius: 4px; /* Sharper corners for a cleaner look */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+
+.console-body {
+    padding: 15px;
+    color: #d4d4d4;
+    font-family: 'Consolas', monospace;
+}
+
+.settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 5px;
+    background: #2d2d30;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.settings-item:hover {
+    background: #3e3e42;
+}
+
+.color-preview {
+    width: 15px;
+    height: 15px;
+    border: 1px solid #666;
+}
+
+.console-status {
+    font-size: 11px;
+    color: #666;
+    margin-top: 10px;
+}
