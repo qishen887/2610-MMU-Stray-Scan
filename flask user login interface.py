@@ -94,11 +94,14 @@ def signup():
         flash("Format error: Password must be exactly 8 digits!")
         return redirect(url_for('register_page'))
     
-    # --- 新增：Email 后缀限制 ---
-    # 限制必须以 @student.mmu.edu.my 或 @mmu.edu.my 结尾
-    allowed_domains = ["@student.mmu.edu.my", "@mmu.edu.my"]
-    if not any(email.endswith(domain) for domain in allowed_domains):
-        flash("Access Denied: Please use your MMU student/staff email.")
+  # --- 核心逻辑：根据后缀分配角色 ---
+    if email.endswith('@mmu.edu.my'):
+        user_role = 'admin'
+    elif email.endswith('@student.mmu.edu.my'):
+        user_role = 'customer'
+    else:
+        # 如果后缀都不对，拒绝注册
+        flash("Please use an official MMU email (@mmu.edu.my or @student.mmu.edu.my)")
         return redirect(url_for('register_page'))
         
 

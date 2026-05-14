@@ -41,6 +41,13 @@
         .btn-primary:hover {
             background-color: #5a6fd6;
         }
+        .input-group-text {
+            border-color: #dee2e6;
+            background-color: white;
+        }
+        .input-group .btn:hover {
+            background-color: #f8f9fa;
+        }
     </style>
 </head>
 <body>
@@ -56,7 +63,7 @@
                               style="width: 40px; height: auto; margin-right: 10px;">
                                MMU Stray Scan 
                             </h3>
-                        <p class="text-center text-muted mb-4">Cyberjaya Community Portal</p>
+                        <p class="text-center text-muted mb-4"> MMU Community Portal</p>
 
                         {% with messages = get_flashed_messages() %}
                           {% if messages %}
@@ -72,6 +79,10 @@
                             <div class="mb-3">
                                 <label class="form-label">Email address</label>
                                 <input type="email" name="email" class="form-control" placeholder="name@student.mmu.edu.my" required>
+                                <div class="form-text text-muted" style="font-size: 0.8rem;">
+                                    * Use <b>@mmu.edu.my</b> for Admin access. <br>
+                                    * Use <b>@student.mmu.edu.my</b> for User access.
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Password</label>
@@ -97,6 +108,20 @@ function togglePassword() {
     pwd.type = pwd.type === 'password' ? 'text' : 'password';
 }
 </script>
+<script>
+function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (input.type === "password") {
+        input.type = "text";  // 变成可见文字
+        btn.innerHTML = '<i class="bi bi-eye"></i>'; // 切换图标（可选）
+    } else {
+        input.type = "password"; // 变回圆点
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    }
+}
+
+</script>
+
 <script>
 document.querySelector('form').addEventListener('submit', function() {
     const btn = document.getElementById('loginBtn');
