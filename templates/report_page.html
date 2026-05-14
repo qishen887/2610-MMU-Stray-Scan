@@ -411,56 +411,56 @@
             document.getElementById('resultImageContainer').innerHTML = '';
         }
 
-// Initialize map
-const map = L.map('map').setView([2.9225, 101.6559], 13);
+        // Initialize map
+        const map = L.map('map').setView([2.9225, 101.6559], 13);
 
-// Map tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+        // Map tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
-// Marker variable
-let marker;
+        // Marker variable
+        let marker;
 
-// Click map event
-map.on('click', async function(e) {
+        // Click map event
+        map.on('click', async function(e) {
 
-    const lat = e.latlng.lat;
-    const lng = e.latlng.lng;
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
 
-    // Remove old marker
-    if (marker) {
-        map.removeLayer(marker);
-    }
+            // Remove old marker
+            if (marker) {
+                map.removeLayer(marker);
+            }
 
-    // Add new marker
-    marker = L.marker([lat, lng]).addTo(map);
+            // Add new marker
+            marker = L.marker([lat, lng]).addTo(map);
 
-    // Save coordinates
-    document.getElementById('latitude').value = lat;
-    document.getElementById('longitude').value = lng;
+            // Save coordinates
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
 
-    // Reverse geocoding
-    try {
+            // Reverse geocoding
+            try {
 
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-        );
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+                );
 
-        const data = await response.json();
+                const data = await response.json();
 
-        // Auto fill address
-        document.getElementById('address').value =
-            data.display_name || `${lat}, ${lng}`;
+                // Auto fill address
+                document.getElementById('address').value =
+                    data.display_name || `${lat}, ${lng}`;
 
-    } catch (error) {
+            } catch (error) {
 
-        console.error(error);
+                console.error(error);
 
-        document.getElementById('address').value =
-            `${lat}, ${lng}`;
-    }
-});
+                document.getElementById('address').value =
+                    `${lat}, ${lng}`;
+            }
+        });
     </script>
 </body>
 </html>
