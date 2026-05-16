@@ -318,8 +318,7 @@
 
                     <!-- Manual input: name="address" so Flask reads it directly -->
                     <div id="manualDiv">
-                        <input type="text" id="addressManual" name="address"
-                               placeholder="Please enter the detailed address" required>
+                        <input type="text" id="addressManual" placeholder="Please enter the detailed address" required>
                     </div>
 
                     <!-- Map input: hidden fields submitted instead -->
@@ -402,7 +401,22 @@
 
     <script>
         document.getElementById('animalReportForm').addEventListener('submit', async function(e) {
-            e.preventDefault(); 
+            e.preventDefault();
+
+            // Copy the active location value into the single named "address" hidden field
+            const isMapMode = document.getElementById('mapDiv').style.display !== 'none';
+            if (isMapMode) {
+                // Map mode: addressHidden already has the geocoded value — nothing to do
+                const pinned = document.getElementById('addressHidden').value;
+                if (!pinned) {
+                    alert('Please pin a location on the map first.');
+                    return;
+                }
+            } else {
+                // Manual mode: copy the typed value into addressHidden
+                document.getElementById('addressHidden').value =
+                    document.getElementById('addressManual').value;
+            } 
 
             const form = this;
             const formData = new FormData(form);
