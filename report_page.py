@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import os
 import urllib.request
 import urllib.parse
@@ -34,7 +34,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-
+def utc_now():
+    return datetime.now(timezone.utc) + timedelta(hours=8)  # Adjust if you want a different timezone
 # Model
 class AnimalReport(db.Model):
     __tablename__ = 'animal_reports'
@@ -49,7 +50,7 @@ class AnimalReport(db.Model):
     details       = db.Column(db.Text,        nullable=True)
     image         = db.Column(db.String(255), nullable=True)    # stored filename only
     status        = db.Column(db.String(20),  nullable=False, default='pending')  # pending/approved/rejected
-    created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
+    created_at    = db.Column(db.DateTime,    default=utc_now)
 
     def to_dict(self):  #Return a JSON-serialisable dict for API responses.
         return {
