@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import os
 import urllib.request
 import urllib.parse
@@ -34,7 +34,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-
+def utc_now():
+    return datetime.now(timezone.utc) + timedelta(hours=8)  # Adjust if you want a different timezone
 # Model
 class AnimalReport(db.Model):
     __tablename__ = 'animal_reports'
@@ -42,14 +43,15 @@ class AnimalReport(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     animal_type   = db.Column(db.String(50),  nullable=False)   # value from dropdown
     custom_animal = db.Column(db.String(100), nullable=True)    # free-text if "other"
-    latitude  = db.Column(db.Float, nullable=True)
-    longitude = db.Column(db.Float, nullable=True)
+    address       = db.Column(db.String(500), nullable=True)   # typed or reverse-geocoded address
+    latitude      = db.Column(db.Float, nullable=True)
+    longitude     = db.Column(db.Float, nullable=True)
     quantity      = db.Column(db.Integer,     nullable=False)
     health_status = db.Column(db.String(20),  nullable=False)   # healthy/injured/sick/unknown
     details       = db.Column(db.Text,        nullable=True)
     image         = db.Column(db.String(255), nullable=True)    # stored filename only
     status        = db.Column(db.String(20),  nullable=False, default='pending')  # pending/approved/rejected
-    created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
+    created_at    = db.Column(db.DateTime,    default=utc_now)
 
     def to_dict(self):  #Return a JSON-serialisable dict for API responses.
         return {
@@ -57,7 +59,7 @@ class AnimalReport(db.Model):
             "animal":        self.custom_animal if self.custom_animal else self.animal_type,
             "animal_type":   self.animal_type,
             "custom_animal": self.custom_animal,
-            "location":      reverse_geocode(self.latitude, self.longitude),
+            "location":      self.address or (f"{self.latitude}, {self.longitude}" if self.latitude else "—"),
             "quantity":      self.quantity,
             "health":        self.health_status,
             "details":       self.details,
@@ -89,6 +91,7 @@ def submit():  # Receive the form, save the image, write a row to the DB.
     try:
         animal_type   = request.form.get('animalType')
         custom_animal = request.form.get('customAnimal') or None
+        address       = request.form.get('address') or None
         latitude      = request.form.get('latitude')
         longitude     = request.form.get('longitude')
         quantity      = request.form.get('quantity')
@@ -106,8 +109,9 @@ def submit():  # Receive the form, save the image, write a row to the DB.
         report = AnimalReport(
             animal_type   = animal_type,
             custom_animal = custom_animal,
-            latitude  = float(request.form.get('latitude')) if request.form.get('latitude') else None,
-            longitude = float(request.form.get('longitude')) if request.form.get('longitude') else None,
+            address       = address,
+            latitude      = float(request.form.get('latitude')) if request.form.get('latitude') else None,
+            longitude     = float(request.form.get('longitude')) if request.form.get('longitude') else None,
             quantity      = int(quantity),
             health_status = health_status,
             details       = details,
@@ -232,7 +236,7 @@ def export_excel():
             report.id,
             report.animal_type,
             report.custom_animal or "—",
-            reverse_geocode(report.latitude, report.longitude),
+            report.address or (f"{report.latitude}, {report.longitude}" if report.latitude else "—"),
             report.quantity,
             report.health_status,
             report.status,
@@ -285,6 +289,9 @@ def export_pdf():
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.enums import TA_CENTER
+
+    def utc_now():
+        return datetime.now(timezone.utc) + timedelta(hours=8)  # Adjust if you want a different timezone
  
     reports = AnimalReport.query.order_by(AnimalReport.created_at.desc()).all()
  
@@ -302,7 +309,7 @@ def export_pdf():
  
     story = [
         Paragraph("🐾 Animal Report Export", title_style),
-        Paragraph(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC  |  Total records: {len(reports)}", sub_style),
+        Paragraph(f"Generated: {utc_now().strftime('%Y-%m-%d %H:%M')} UTC+8  |  Total records: {len(reports)}", sub_style),
     ]
  
     # Table data
@@ -312,7 +319,7 @@ def export_pdf():
         data.append([
             str(rpt.id),
             f"{rpt.custom_animal or rpt.animal_type}",
-            reverse_geocode(rpt.latitude, rpt.longitude),
+            Paragraph(rpt.address or (f"{rpt.latitude}, {rpt.longitude}" if rpt.latitude else "—"), wrap_style),
             str(rpt.quantity),
             rpt.health_status.capitalize(),
             rpt.status.capitalize(),
@@ -320,7 +327,7 @@ def export_pdf():
             rpt.created_at.strftime("%Y-%m-%d\n%H:%M"),
         ])
  
-    col_widths_pdf = [12*mm, 28*mm, 42*mm, 12*mm, 18*mm, 18*mm, 80*mm, 30*mm]
+    col_widths_pdf = [12*mm, 25*mm, 55*mm, 12*mm, 18*mm, 18*mm, 68*mm, 30*mm]
  
     STATUS_COLORS = {
         "pending":  colors.HexColor("#FFF3CD"),
