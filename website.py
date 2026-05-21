@@ -15,7 +15,7 @@ def login_page():
 
 # 3. Route for the Signup Page (Optional but recommended)
 @app.route('/signup')
-def register_page():
+def signup():
     return render_template('signup.html')
 
 # 4. Route for the Report Page (Matching url_for('report'))

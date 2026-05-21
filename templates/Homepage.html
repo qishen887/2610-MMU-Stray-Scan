@@ -23,7 +23,7 @@
     <span>Login</span>
 </div>
 
-<div class="sidebar-item" onclick="window.location.href=`{{ url_for('register_page') }}`" title="Register" style="cursor: pointer;">
+<div class="sidebar-item" onclick="window.location.href=`{{ url_for('signup') }}`" title="Register" style="cursor: pointer;">
     <div style="font-size: 20px;">&#128221;</div>
     <span>Register</span>
 </div>
@@ -61,9 +61,44 @@
             </div>
 
             <section>
-                <h2>Quick Actions</h2>
-                <button style="background-color: #f09c16; color: white;">Report New Stray</button>
-            </section>
+    <h2>Quick Actions</h2>
+    <button id="filter-btn" onclick="toggleFilters(event)" style="background-color: #f09c16; color: white;"> Filters</button>
+</section>
+
+<div id="filterModal" class="settings-bottom-panel" style="display: none;">
+    <div class="console-box solid-version" style="max-width: 500px; margin: 0 auto;">
+        <div class="console-body" style="padding: 20px; color: white;">
+            <h3 style="margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 8px;">Map Filters</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <p style="font-weight: 600; margin-bottom: 8px; color: #f09c16;">Animal Type:</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    <label><input type="checkbox" name="animalFilter" value="dog" checked> 🐕 Dog</label>
+                    <label><input type="checkbox" name="animalFilter" value="cat" checked> 🐈 Cat</label>
+                    <label><input type="checkbox" name="animalFilter" value="rabbit" checked> 🐰 Rabbit</label>
+                    <label><input type="checkbox" name="animalFilter" value="bird" checked> 🐦 Bird</label>
+                    <label><input type="checkbox" name="animalFilter" value="squirrel" checked> 🐿️ Squirrel</label>
+                    <label><input type="checkbox" name="animalFilter" value="other" checked> Other</label>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <p style="font-weight: 600; margin-bottom: 8px; color: #f09c16;">Health Status:</p>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <label><input type="checkbox" name="healthFilter" value="healthy" checked> 💚 Healthy</label>
+                    <label><input type="checkbox" name="healthFilter" value="injured" checked> 🩹 Hurt</label>
+                    <label><input type="checkbox" name="healthFilter" value="sick" checked> 🤒 Sick</label>
+                    <label><input type="checkbox" name="healthFilter" value="unknown" checked> ❓ Not sure</label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                <button onclick="applyFilters()" style="background: #43e97b; color: black; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: 600;">Apply Filters</button>
+                <p class="console-status" onclick="closeFilters()" style="cursor:pointer; margin: 0; padding-top: 5px;">[ Close ]</p>
+            </div>
+        </div>
+    </div>
+</div>
         </div>
     </div>
 
@@ -140,17 +175,57 @@ function changeBg(color) {
     }
 }
 
-// Close if user clicks anywhere outside the panel
+// 点击页面任意外部区域时，自动关闭打开的面板
 window.addEventListener('click', function(event) {
-    const modal = document.getElementById('settingsModal');
+    // 1. 处理设置面板的关闭
+    const settingsModal = document.getElementById('settingsModal');
     const settingsBtn = document.querySelector('[title="Settings"]');
-    // If click is not on the modal and not on the settings button, close it
-    if (modal.style.display === 'block' && 
-        !modal.contains(event.target) && 
+    if (settingsModal && settingsModal.style.display === 'block' && 
+        !settingsModal.contains(event.target) && 
         !settingsBtn.contains(event.target)) {
         closeSettings();
     }
+
+    // 2. 处理筛选面板的关闭
+    const filterModal = document.getElementById('filterModal');
+    const filterBtn = document.getElementById('filter-btn');
+    if (filterModal && filterModal.style.display === 'block' && 
+        !filterModal.contains(event.target) && 
+        !filterBtn.contains(event.target)) {
+        closeFilters();
+    }
 });
+// --- Filters 筛选面板控制逻辑 ---
+
+// 打开或关闭 Filter 面板
+function toggleFilters(event) {
+    if (event) event.stopPropagation(); // 阻止事件冒泡，防止触发 window 点击
+    const modal = document.getElementById('filterModal');
+    if (modal.style.display === 'block') {
+        modal.style.display = 'none';
+    } else {
+        modal.style.display = 'block';
+    }
+}
+
+// 关闭 Filter 面板
+function closeFilters() {
+    document.getElementById('filterModal').style.display = 'none';
+}
+
+// 点击 Apply 按钮时触发的筛选过滤逻辑
+function applyFilters() {
+    // 获取用户勾选的所有动物类型
+    const selectedAnimals = Array.from(document.querySelectorAll('input[name="animalFilter"]:checked')).map(cb => cb.value);
+    // 获取用户勾选的所有健康状态
+    const selectedHealth = Array.from(document.querySelectorAll('input[name="healthFilter"]:checked')).map(cb => cb.value);
+
+    console.log("Selected Animals:", selectedAnimals);
+    console.log("Selected Health:", selectedHealth);
+
+    // 过滤完成后自动关闭面板
+    closeFilters();
+}
     </script>
 <div id="settingsModal" class="settings-bottom-panel">
     <div class="console-box solid-version">
