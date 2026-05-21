@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stray Scan - Sign Up</title>
-    <!-- 引入相同的 Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style> 
         body {
@@ -42,6 +41,10 @@
             border-color: #dee2e6;
             background-color: white;
         }
+        .input-group .btn {
+            border-color: #dee2e6;
+            background-color: white;
+        }
         .input-group .btn:hover {
             background-color: #f8f9fa;
         }
@@ -54,7 +57,6 @@
             <div class="col-md-5">
                 <div class="card signup-card p-4">
                     <div class="card-body">
-                        <!-- 相同的 Logo 和 标题 -->
                         <h3 class="text-center mb-4 fw-bold d-flex align-items-center justify-content-center">
                             <img src="{{ url_for('static', filename='logo.png') }}" 
                                  alt="Logo" 
@@ -63,7 +65,6 @@
                         </h3>
                         <p class="text-center text-muted mb-4">Create an account to help our community</p>
 
-                        <!-- 消息闪现 (显示注册错误或提示) -->
                         {% with messages = get_flashed_messages() %}
                           {% if messages %}
                             {% for message in messages %}
@@ -74,28 +75,38 @@
                           {% endif %}
                         {% endwith %}
 
-                        <!-- 注册表单，Action 指向你的 /signup 路由 -->
-                        <form action="/signup" method="POST">
+                        <form action="/signup" method="POST" id="signupForm">
                             <div class="mb-3">
                                 <label class="form-label">MMU Email address</label>
-                                <input type="email" name="email" class="form-control" placeholder="name@student.mmu.edu.my/@mmu.edu.my" required pattern=".+@student\.mmu\.edu\.my|.+@mmu\.edu\.my"title="Please use your official MMU email (@student.mmu.edu.my or @mmu.edu.my)">
+                                <input type="email" name="email" class="form-control" placeholder="name@student.mmu.edu.my/@mmu.edu.my" required pattern=".+@student\.mmu\.edu\.my|.+@mmu\.edu\.my" title="Please use your official MMU email (@student.mmu.edu.my or @mmu.edu.my)">
+                                <div class="form-text text-muted" style="font-size: 0.8rem;">
+                                    * Use <b>@mmu.edu.my</b> for Admin <br>
+                                    * Use <b>@student.mmu.edu.my</b> for User
+                                </div>
                             </div>
+                            
                             <div class="mb-3">
                                 <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" placeholder="Create password" required minlength="8"title="Please enter numbers only(0-9).">
+                                <div class="input-group">
+                                    <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required pattern="\d{8}" title="Please enter exactly 8 numbers (0-9).">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password', this)">
+                                        👁️
+                                    </button>
+                                </div>
                             </div>
-                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password', this)">
-                                <i class="bi bi-eye-slash"></i>
-                            </button>
+                            
                             <div class="mb-3">
                                 <label class="form-label">Confirm Password</label>
-                                <input type="password" name="confirm_password" class="form-control" placeholder="Repeat password" required minlength="8" >
-                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirm_password', this)">
-                                    <i class="bi bi-eye-slash"></i>
-                                </button>
+                                <div class="input-group">
+                                    <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Confirm Password" required pattern="\d{8}" title="Please repeat your Confirm Password password.">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirm_password', this)">
+                                        👁️
+                                    </button>
+                                </div>
                             </div>
+                            
                             <div class="d-grid gap-2 mt-4">
-                                <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
+                                <button type="submit" id="signupBtn" class="btn btn-primary btn-lg">Create Account</button>
                             </div>
                         </form>
                         
@@ -108,19 +119,31 @@
             </div>
         </div>
     </div>
+    
     <script>
-function togglePassword(inputId, btn) {
-    const input = document.getElementById(inputId);
-    if (input.type === "password") {
-        input.type = "text";  // 变成可见文字
-        btn.innerHTML = '<i class="bi bi-eye"></i>'; // 切换图标（可选）
-    } else {
-        input.type = "password"; // 变回圆点
-        btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    // 眼睛切换函数
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (input) {
+            if (input.type === "password") {
+                input.type = "text";     // 变成明文
+                btn.textContent = "🕶️";  // 换个图标
+            } else {
+                input.type = "password"; // 变回加密
+                btn.textContent = "👁️";
+            }
+        }
     }
-}
 
-</script>
+    // 防止表单重复提交
+    document.getElementById('signupForm').addEventListener('submit', function() {
+        const btn = document.getElementById('signupBtn');
+        if (btn) {
+            btn.disabled = true; 
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
+        }
+    });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
