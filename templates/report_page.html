@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
     <title>Report page</title>
     <style>
         * {
@@ -27,27 +30,28 @@
         .container {
             max-width: 600px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background-color: rgba(255, 255, 255, 0.9); /* 90% 不透明 */
+            backdrop-filter: blur(5px); /* 让背景模糊（高级感） */
             overflow: hidden;
         }
 
         .header {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
             padding: 30px;
             text-align: center;
         }
 
         .header h1 {
-            color: white;
+            color: black;
             font-size: 28px;
             font-weight: 700;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .header p {
-            color: rgba(255, 255, 255, 0.9);
+            color: black;
             margin-top: 8px;
             font-size: 14px;
         }
@@ -233,6 +237,30 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
+
+        /* ── Location toggle ── */
+        .location-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 9px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s;
+            color: #888;
+        }
+        .toggle-btn.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -277,7 +305,36 @@
 
                 <div class="form-group">
                     <label>Location <span class="required">*</span></label>
-                    <input type="text" name="address" placeholder="Please enter the detailed address" required>
+
+                    <!-- Toggle buttons -->
+                    <div class="location-toggle">
+                        <button type="button" class="toggle-btn active" id="btnManual" onclick="switchMode('manual')">
+                            ✏️ Type Address
+                        </button>
+                        <button type="button" class="toggle-btn" id="btnMap" onclick="switchMode('map')">
+                            🗺️ Pick on Map
+                        </button>
+                    </div>
+
+                    <!-- Manual input: name="address" so Flask reads it directly -->
+                    <div id="manualDiv">
+                        <input type="text" id="addressManual" placeholder="Please enter the detailed address" required>
+                    </div>
+
+                    <!-- Map input: hidden fields submitted instead -->
+                    <div id="mapDiv" style="display:none;">
+                        <p style="font-size:12px;color:#888;margin-bottom:6px;">
+                            📍 Click on the map to pin your location.
+                        </p>
+                        <div id="map" style="height:300px;border-radius:10px;border:2px solid #e0e0e0;"></div>
+                        <!-- These replace the manual input when map mode is active -->
+                        <input type="hidden" id="addressHidden" name="address">
+                        <input type="hidden" id="latitude"      name="latitude">
+                        <input type="hidden" id="longitude"     name="longitude">
+                        <p id="pinLabel" style="font-size:12px;color:#667eea;font-weight:600;margin-top:6px;">
+                            No location pinned yet.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -342,11 +399,24 @@
         </div>
     </div>
 
-    <!-- FIX 1: Script is now correctly placed at the bottom of <body>, outside all divs -->
     <script>
-        // FIX 2: Submit handler is properly attached to the form via addEventListener
         document.getElementById('animalReportForm').addEventListener('submit', async function(e) {
-            e.preventDefault(); // FIX 3: e now correctly refers to the submit event
+            e.preventDefault();
+
+            // Copy the active location value into the single named "address" hidden field
+            const isMapMode = document.getElementById('mapDiv').style.display !== 'none';
+            if (isMapMode) {
+                // Map mode: addressHidden already has the geocoded value — nothing to do
+                const pinned = document.getElementById('addressHidden').value;
+                if (!pinned) {
+                    alert('Please pin a location on the map first.');
+                    return;
+                }
+            } else {
+                // Manual mode: copy the typed value into addressHidden
+                document.getElementById('addressHidden').value =
+                    document.getElementById('addressManual').value;
+            } 
 
             const form = this;
             const formData = new FormData(form);
@@ -359,29 +429,30 @@
 
                 const result = await response.json();
 
-                // FIX 4: Backend now returns result.data, so we read it here correctly
-                if (result.status === "success") {
-                    const data = result.data;
+                const data = result.data;
 
                     document.getElementById('formContainer').style.display = 'none';
                     document.getElementById('successMessage').style.display = 'block';
 
-                    document.getElementById('resultText').innerText =
-                        `Animal: ${data.animal}\nLocation: ${data.location}\nQuantity: ${data.quantity}\nHealth: ${data.health}\nDetails: ${data.details}`;
+                    // Update the text to English
+                    document.getElementById('resultText').innerText = 
+                        `Animal: ${data.animal}\n` +
+                        `Location: ${data.location}\n` + 
+                        `Quantity: ${data.quantity}\n` +
+                        `Health: ${data.health}\n` +
+                        `Details: ${data.details || 'None provided'}`;
 
-                    // Dynamically inject <img> only when an image was uploaded.
-                    // Never leave a srcless <img> in the DOM — browsers show a broken icon.
                     const container = document.getElementById('resultImageContainer');
                     container.innerHTML = '';
                     if (data.image) {
                         const imgEl = document.createElement('img');
-                        imgEl.src = '/uploads/' + data.image;  // data.image is just the filename e.g. 'rabbit.jpg'
+                        imgEl.src = '/uploads/' + data.image;  
                         imgEl.style.cssText = 'max-width:100%; margin-top:10px; border-radius:10px;';
                         imgEl.onerror = function() {
                             container.innerHTML = '<p style="color:#e74c3c;font-size:13px;">⚠️ Image could not be loaded.</p>';
                         };
                         container.appendChild(imgEl);
-                    }
+                    
                 } else {
                     alert("Error: " + result.message);
                 }
@@ -396,6 +467,80 @@
             document.getElementById('formContainer').style.display = 'block';
             document.getElementById('successMessage').style.display = 'none';
             document.getElementById('resultImageContainer').innerHTML = '';
+        }
+
+        // Initialize map
+        const map = L.map('map').setView([2.9225, 101.6559], 13);
+
+        // Map tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Marker variable
+        let marker;
+
+        // Map click event
+        map.on('click', async function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            // Place / move marker
+            if (marker) map.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(map);
+
+            // Always save raw coordinates
+            document.getElementById('latitude').value  = lat;
+            document.getElementById('longitude').value = lng;
+
+            document.getElementById('pinLabel').textContent = 'Fetching address...';
+
+            try {
+                const res  = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                const data = await res.json();
+                // Use full address if available, else fall back to coordinates
+                const addr = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('addressHidden').value = addr;
+                document.getElementById('pinLabel').textContent = '📍 ' + addr;
+                marker.bindPopup(addr).openPopup();
+            } catch (err) {
+                // Nominatim failed — store raw coordinates as the address
+                const addr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('addressHidden').value = addr;
+                document.getElementById('pinLabel').textContent = '📍 ' + addr;
+                marker.bindPopup(addr).openPopup();
+            }
+        });
+
+        // ── Location mode toggle ──────────────────────────────────────────────
+        function switchMode(mode) {
+            const manualDiv = document.getElementById('manualDiv');
+            const mapDiv    = document.getElementById('mapDiv');
+            const manualIn  = document.getElementById('addressManual');
+            const hiddenIn  = document.getElementById('addressHidden');
+            const btnManual = document.getElementById('btnManual');
+            const btnMap    = document.getElementById('btnMap');
+
+            if (mode === 'manual') {
+                manualDiv.style.display = 'block';
+                mapDiv.style.display    = 'none';
+                manualIn.required = true;
+                hiddenIn.required = false;
+                btnManual.classList.add('active');
+                btnMap.classList.remove('active');
+            } else {
+                manualDiv.style.display = 'none';
+                mapDiv.style.display    = 'block';
+                manualIn.required = false;
+                hiddenIn.required = true;
+                btnManual.classList.remove('active');
+                btnMap.classList.add('active');
+                // Leaflet needs this when shown after being hidden
+                setTimeout(() => map.invalidateSize(), 100);
+            }
         }
     </script>
 </body>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyberjaya Stray Scan</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="sidebar">
+            <div class="sidebar-item" onclick="toggleSidebar()" title="Toggle Menu">
+                <div style="font-size: 24px;">&#9776;</div>
+            </div>
+            
+<div class="sidebar-item" onclick="window.location.href=`{{ url_for('login_page') }}`" title="Login" style="cursor: pointer;">
+    <div style="font-size: 20px;">&#128100;</div>
+    <span>Login</span>
+</div>
+
+<div class="sidebar-item" onclick="window.location.href=`{{ url_for('register_page') }}`" title="Register" style="cursor: pointer;">
+    <div style="font-size: 20px;">&#128221;</div>
+    <span>Register</span>
+</div>
+
+<div class="sidebar-item" 
+         onclick="window.location.href=`{{ url_for('report') }}`" 
+         title="Report" 
+         style="cursor: pointer;">
+        <div style="font-size: 20px;">&#128203;</div>
+        <span>New Report</span>
+    </div>
+
+<div class="sidebar-item" title="Record">
+    <span>Past Record</span>
+</div>
+            <div class="spacer"></div>
+
+<div class="sidebar-item" onclick="toggleSettings()" title="Settings" style="cursor: pointer;">
+    <div style="font-size: 20px;">&#9881;</div>
+    <span>Settings</span>
+</div>
+        </div>
+
+        <div id="main-content">
+            <header>
+                <h1 style="margin: 0;">Cyberjaya Stray Scan</h1>
+                <nav>
+                    <button>About</button>
+                    <button>Contact</button>
+                </nav>
+            </header>
+
+            <div id="map">
+                <button id="recenter-btn" onclick="recenterMap(event)">📍 Recenter to Origin</button>
+            </div>
+
+            <section>
+                <h2>Quick Actions</h2>
+                <button style="background-color: #f09c16; color: white;">Report New Stray</button>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        const cyberCoord = [2.9213, 101.6559];
+        let userPos = null;
+        var marker;
+
+        // --- Map Initialization ---
+        var map = L.map('map').setView(cyberCoord, 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// Auto-detect user position
+map.locate({setView: true, maxZoom: 16});
+map.on('locationfound', function(e) {
+    userPos = e.latlng;
+    if (marker) map.removeLayer(marker);
+    // 把 "Origin Detected" 改成了 "Your current location"
+    marker = L.marker(e.latlng).addTo(map).bindPopup("Your current location").openPopup();
+});
+
+        // --- Logic Functions ---
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            // Allow map to recalculate its width after transition
+            setTimeout(() => { map.invalidateSize(); }, 350);
+        }
+
+        function recenterMap(event) {
+            event.stopPropagation(); // Prevent map click event
+            map.flyTo(userPos || cyberCoord, 16);
+        }
+
+        // Add marker on manual click
+        map.on('click', function(e) {
+            if (marker) map.removeLayer(marker);
+            marker = L.marker(e.latlng).addTo(map).bindPopup("Pinned Location").openPopup();
+        });
+
+        // Fix rendering on initial load
+        window.onload = function() {
+            setTimeout(() => { map.invalidateSize(); }, 500);
+        };
+
+/* --- Improved Toggle Logic --- */
+
+function toggleSettings() {
+    const modal = document.getElementById('settingsModal');
+    // Toggle between show (block) and hide (none)
+    if (modal.style.display === 'block') {
+        modal.style.display = 'none';
+    } else {
+        modal.style.display = 'block';
+    }
+}
+
+// Keep the specific close function for background clicks
+function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+// Background change logic
+function changeBg(color) {
+    const mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+
+    if (color === 'default') {
+        mainContent.style.backgroundImage = ""; 
+    } else {
+        mainContent.style.backgroundImage = "none";
+        mainContent.style.backgroundColor = color;
+    }
+}
+
+// Close if user clicks anywhere outside the panel
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('settingsModal');
+    const settingsBtn = document.querySelector('[title="Settings"]');
+    // If click is not on the modal and not on the settings button, close it
+    if (modal.style.display === 'block' && 
+        !modal.contains(event.target) && 
+        !settingsBtn.contains(event.target)) {
+        closeSettings();
+    }
+});
+    </script>
+<div id="settingsModal" class="settings-bottom-panel">
+    <div class="console-box solid-version">
+        <div class="console-body">
+            <div class="settings-list">
+                <div class="settings-item" onclick="changeBg('default')">
+                    <span>Default Theme</span>
+                    <div class="color-preview" style="background: linear-gradient(135deg, #f09c16, #000);"></div>
+                </div>
+                <div class="settings-item" onclick="changeBg('#1a1a1a')">
+                    <span>Midnight Black</span>
+                    <div class="color-preview" style="background: #1a1a1a;"></div>
+                </div>
+                <div class="settings-item" onclick="changeBg('#0f172a')">
+                    <span>Deep Blue</span>
+                    <div class="color-preview" style="background: #0f172a;"></div>
+                </div>
+            </div>
+            <p class="console-status" onclick="closeSettings()" style="cursor:pointer; text-align:center;">[ Close Panel ]</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

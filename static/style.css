@@ -1,0 +1,187 @@
+/* style.css */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(#f09c16, black);
+  background-attachment: fixed;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* --- SIDEBAR STYLE (Collapsible) --- */
+#sidebar {
+  width: 250px;
+  min-width: 250px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 20px 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
+}
+
+#sidebar.collapsed {
+  width: 70px;
+  min-width: 70px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  cursor: pointer;
+  color: #333;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  transition: background 0.2s;
+  overflow: hidden;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(240, 156, 22, 0.1);
+}
+
+.sidebar-item span {
+  margin-left: 15px;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+#sidebar.collapsed .sidebar-item span {
+  opacity: 0;
+  display: none;
+}
+
+#sidebar.collapsed .sidebar-item {
+  justify-content: center;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* --- MAIN CONTENT AREA --- */
+#main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  color: white;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 10px 20px;
+  border-radius: 10px;
+}
+
+nav {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  font-family: Consolas, monospace;
+  background-color: #fff;
+  color: black;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+button:hover {
+  background-color: #f1c27d;
+  transform: translateY(-2px);
+}
+
+/* --- MAP & FLOATING BUTTON --- */
+#map {
+  width: 100%;
+  height: 500px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  margin-bottom: 20px;
+  position: relative; /* CRITICAL for absolute positioning of children */
+  z-index: 1;
+}
+
+#recenter-btn {
+  position: absolute; /* Floating inside map */
+  top: 15px;
+  right: 15px;
+  z-index: 1000; /* Stay above map layers */
+  padding: 10px 14px;
+  background: white;
+  color: black;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-weight: bold;
+}
+/* Sidebar-style Settings Panel (No background dimming) */
+/* --- Settings Panel: Bottom-Left Version (Solid) --- */
+
+/* 1. Main Container: Positioned at bottom-left corner */
+/* --- Final Solid Settings Style --- */
+
+.settings-bottom-panel {
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    left: 280px;
+    width: 280px; /* Slightly slimmer */
+    z-index: 9999;
+}
+
+.solid-version {
+    background-color: #1e1e1e !important;
+    border: 1px solid #444; /* Thinner border */
+    border-radius: 4px; /* Sharper corners for a cleaner look */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+
+.console-body {
+    padding: 15px;
+    color: #d4d4d4;
+    font-family: 'Consolas', monospace;
+}
+
+.settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 5px;
+    background: #2d2d30;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.settings-item:hover {
+    background: #3e3e42;
+}
+
+.color-preview {
+    width: 15px;
+    height: 15px;
+    border: 1px solid #666;
+}
+
+.console-status {
+    font-size: 11px;
+    color: #666;
+    margin-top: 10px;
+}
