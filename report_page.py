@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta, timezone
 import os
@@ -36,6 +36,7 @@ db = SQLAlchemy(app)
 
 def utc_now():
     return datetime.now(timezone.utc) + timedelta(hours=8)  # Adjust if you want a different timezone
+
 # Model
 class AnimalReport(db.Model):
     __tablename__ = 'animal_reports'
@@ -63,7 +64,7 @@ class AnimalReport(db.Model):
             "quantity":      self.quantity,
             "health":        self.health_status,
             "details":       self.details,
-            "image":         self.image,
+            "image":         self.image if self.image else None,
             "status":        self.status,
             "created_at":    self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         }
@@ -83,8 +84,23 @@ def uploaded_file(filename):
 
 @app.route('/')
 def home():
+    return redirect(url_for('homepage'))
+
+@app.route('/home')
+def homepage():
+    return render_template('homepage.html')
+
+@app.route('/report')
+def report():
     return render_template('report_page.html')
 
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/register')
+def register_page():
+    return render_template('signup.html')
 
 @app.route('/submit', methods=['POST'])
 def submit():  # Receive the form, save the image, write a row to the DB.
@@ -133,7 +149,6 @@ def submit():  # Receive the form, save the image, write a row to the DB.
         db.session.rollback()
         print(f"[ERROR] {e}")
         return jsonify({"status": "error", "message": str(e)})
-
 
 # Optional read endpoints for admin dashboard to list reports, view details, delete, or update status.
 

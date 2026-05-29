@@ -554,6 +554,10 @@
             <button class="tab" onclick="setFilter('pending', this)">Pending</button>
             <button class="tab" onclick="setFilter('approved', this)">Approved</button>
             <button class="tab" onclick="setFilter('rejected', this)">Rejected</button>
+
+            <button class="refresh-btn" onclick="toggleSort()">
+                <span id="sortIcon">↓</span> <span id="sortLabel">Newest First</span>
+            </button>
         </div>
 
         <!-- Table -->
@@ -716,6 +720,7 @@
                             ${r.status === 'approved' ? 'disabled' : ''}>✓</button>
                         <button class="btn btn-reject"  onclick="updateStatus(${r.id},'rejected')"
                             ${r.status === 'rejected' ? 'disabled' : ''}>✕</button>
+                        <button class="btn btn-reject"  onclick="deleteReport(${r.id})" style="background:rgba(245,92,92,0.15)" title="Delete">🗑</button>
                     </div>
                 </td>
             </tr>
@@ -810,6 +815,37 @@
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
+    // Sort toggle
+let sortAsc = false;
+function toggleSort() {
+    sortAsc = !sortAsc;
+    document.getElementById('sortIcon').textContent  = sortAsc ? '↑' : '↓';
+    document.getElementById('sortLabel').textContent = sortAsc ? 'Oldest First' : 'Newest First';
+    allReports.sort((a, b) => {
+        const da = new Date(a.created_at), db = new Date(b.created_at);
+        return sortAsc ? da - db : db - da;
+    });
+    renderTable();
+}
+
+    // Delete report 
+async function deleteReport(id) {
+    if (!confirm(`Delete report #${id}? This cannot be undone.`)) return;
+    try {
+        const res  = await fetch(`/reports/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.status === 'success') {
+            allReports = allReports.filter(r => r.id !== id);
+            updateStats();
+            renderTable();
+            showToast(`Report #${id} deleted.`, 'success');
+        } else {
+            showToast('Error: ' + json.message, 'error');
+        }
+    } catch (e) {
+        showToast('Network error. Please try again.', 'error');
+    }
+}
     // Initial load
     loadReports();
 </script>

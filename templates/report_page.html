@@ -393,9 +393,7 @@
             <div id="resultImageContainer"></div>
             <br>
             <button class="back-btn" onclick="resetForm()">Submit New Report</button>
-            <a href="homepage.html">
-                <button class="button">Go to homepage</button>
-            </a>
+            <button class="back-btn" onclick="window.location.href='/home'">Go to Homepage</button>
         </div>
     </div>
 
@@ -428,7 +426,7 @@
                 });
 
                 const result = await response.json();
-
+                if (result.status === 'success') {
                 const data = result.data;
 
                     document.getElementById('formContainer').style.display = 'none';
@@ -452,6 +450,7 @@
                             container.innerHTML = '<p style="color:#e74c3c;font-size:13px;">⚠️ Image could not be loaded.</p>';
                         };
                         container.appendChild(imgEl);
+                    }
                     
                 } else {
                     alert("Error: " + result.message);
