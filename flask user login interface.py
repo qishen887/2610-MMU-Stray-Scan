@@ -18,7 +18,7 @@ users = {
 
 @app.route('/')
 def index():
-    # # If the user is already logged in, send him to the backend directly without logging in again.
+    #If the user is already logged in, send him to the backend directly without logging in again.
     if 'user' in session:
         if session['role'] == 'admin':
             return redirect(url_for('admin_dashboard'))
