@@ -27,7 +27,7 @@ def index():
 
 @app.route('/login', methods=['POST'])
 def login():
-    email = request.form.get('email')
+    email = request.form.get('email').lower().strip()
     password = request.form.get('password')
 
     # 1. Check if the email exists
@@ -41,28 +41,40 @@ def login():
         session['role'] = user_data['role']
         
         flash("Login successful! feedback.")
+        if email.endswith('@mmu.edu.my'):
+            session['role'] = 'admin'
+        else:
+            session['role'] = user_data.get('role', 'customer')
+        
         if session['role'] == 'admin':
+            flash("Welcome, {session['user']}! You are logged in as an administrator.")
             return redirect(url_for('admin_dashboard'))
         else:
+            flash("Welcome, {session['user']}! You are logged in as a customer.")
             return redirect(url_for('user_dashboard'))
     else:
         # Authentication failed
         flash("Invalid email or password. Please try again.")
-        return redirect(url_for('index'))
+        return redirect(url_for('login_page'))
 
-@app.route('/admin_dashboard')
+# --- Admin 专用页面 ---
+@app.route('/admin-dashboard')
 def admin_dashboard():
-    # Simple permission check: must be logged in and role is admin
-    if session.get('role') == 'admin':
-        return "<h1>Administrator backend</h1><p>Here you can manage animal report data.</p><a href='/logout'>Logout</a>"
-    return redirect(url_for('index'))
+    # 安全拦截：防止普通用户或者没登录的人直接偷窥这个页面
+    if 'user' not in session or session.get('role') != 'admin':
+        flash("Access denied! Admins only.")
+        return redirect(url_for('index'))
+        
+    return render_template('admin_page.html') # 指向你的管理后台 HTML
 
-@app.route('/user_dashboard')
+# --- 普通 User 页面 ---
+@app.route('/user-dashboard')
 def user_dashboard():
-    # Simple permission check: must be logged in and role is customer
-    if session.get('role') == 'customer':
-        return "<h1>Customer Center</h1><p>You can submit new findings here.</p><a href='/logout'>Logout</a>"
-    return redirect(url_for('index'))
+    if 'user' not in session:
+        flash("Please login first.")
+        return redirect(url_for('index'))
+        
+    return render_template('homepage.html') # 指向你的用户界面 HTML
 
 @app.route('/logout')
 def logout():
@@ -115,7 +127,7 @@ def signup():
     hashed_password = generate_password_hash(password)
     users[email] = {
         "password": hashed_password,
-        "role": "customer"
+        "role": user_role
     }
 
     flash("Registration successful! Please login.")
