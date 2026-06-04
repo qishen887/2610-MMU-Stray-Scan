@@ -5,8 +5,8 @@ import os
 import urllib.request
 import urllib.parse
 import json
-from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session
-
+from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def reverse_geocode(lat, lon):
@@ -23,6 +23,7 @@ def reverse_geocode(lat, lon):
         return f"{lat}, {lon}"
 
 app = Flask(__name__)
+app.secret_key = 'mmu'
 
 # Uploads folder 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -71,6 +72,17 @@ class AnimalReport(db.Model):
             "created_at":    self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    email      = db.Column(db.String(120), unique=True, nullable=False)
+    password   = db.Column(db.String(255), nullable=False)
+    role       = db.Column(db.String(20),  nullable=False, default='customer')
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
 
 # Create all tables on first run
 with app.app_context():
@@ -88,15 +100,6 @@ def uploaded_file(filename):
 def home():
     return redirect(url_for('homepage'))
 
-@app.route('/session-info')
-def session_info():
-    if 'user' in session:
-        return jsonify({
-            "logged_in": True,
-            "email": session['user'],
-            "role": session.get('role', 'unknown')
-        })
-    return jsonify({"logged_in": False})
 
 @app.route('/home')
 def homepage():
@@ -108,11 +111,84 @@ def report():
 
 @app.route('/login')
 def login_page():
+    if 'user' in session:
+        if session['role'] == 'admin':
+            return redirect(url_for('admin'))
+        return redirect(url_for('homepage'))
     return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+def login():
+    email    = request.form.get('email')
+    password = request.form.get('password')
+
+    user = User.query.filter_by(email=email).first()
+
+    if user and user.check_password(password):
+        session['user'] = user.email
+        session['role'] = user.role
+        if user.role == 'admin':
+            return redirect(url_for('admin'))
+        return redirect(url_for('homepage'))
+    else:
+        flash("Invalid email or password. Please try again.")
+        return redirect(url_for('login_page'))
 
 @app.route('/register')
 def register_page():
     return render_template('signup.html')
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    email            = request.form.get('email')
+    password         = request.form.get('password')
+    confirm_password = request.form.get('confirm_password')
+
+    if not email or not password:
+        flash("Email and password are required.")
+        return redirect(url_for('register_page'))
+
+    if password != confirm_password:
+        flash("Passwords do not match!")
+        return redirect(url_for('register_page'))
+
+    if len(password) != 8:
+        flash("Password must be exactly 8 characters!")
+        return redirect(url_for('register_page'))
+
+    if email.endswith('@mmu.edu.my'):
+        user_role = 'admin'
+    elif email.endswith('@student.mmu.edu.my'):
+        user_role = 'customer'
+    else:
+        flash("Please use an official MMU email (@mmu.edu.my or @student.mmu.edu.my)")
+        return redirect(url_for('register_page'))
+
+    if User.query.filter_by(email=email).first():
+        flash("Email already registered. Please login.")
+        return redirect(url_for('login_page'))
+
+    new_user = User(
+        email    = email,
+        password = generate_password_hash(password),
+        role     = user_role
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    flash("Registration successful! Please login.")
+    return redirect(url_for('login_page'))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
+
+@app.route('/session-info')
+def session_info():
+    if 'user' in session:
+        return jsonify({"logged_in": True, "email": session['user'], "role": session['role']})
+    return jsonify({"logged_in": False})
 
 @app.route('/submit', methods=['POST'])
 def submit():  # Receive the form, save the image, write a row to the DB.
@@ -398,6 +474,23 @@ def export_pdf():
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name="animal_reports.pdf")
  
- 
+def seed_default_users():
+    defaults = [
+        {"email": "admin@mmu.edu.my",           "password": "admin123", "role": "admin"},
+        {"email": "user@student.mmu.edu.my",    "password": "user1234", "role": "customer"},
+    ]
+    for d in defaults:
+        if not User.query.filter_by(email=d['email']).first():
+            db.session.add(User(
+                email    = d['email'],
+                password = generate_password_hash(d['password']),
+                role     = d['role']
+            ))
+    db.session.commit()
+
+with app.app_context():
+    db.create_all()
+    seed_default_users()
+
 if __name__ == '__main__':
     app.run(debug=True)
