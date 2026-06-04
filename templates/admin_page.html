@@ -492,6 +492,75 @@
             border-color: rgba(245,92,92,0.3);
         }
         .export-btn.pdf:hover { background: rgba(220,53,69,0.2); }
+
+        /* ── Sidebar profile card ── */
+        .sidebar-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-top: 1px solid var(--border);
+            margin-top: 4px;
+        }
+
+        .profile-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(79,139,255,0.18);
+            color: var(--accent);
+            font-family: 'DM Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .profile-avatar.guest {
+            background: rgba(99,106,130,0.18);
+            color: var(--muted);
+        }
+
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-role {
+            font-size: 10px;
+            font-family: 'DM Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 2px;
+        }
+
+        .profile-role.role-admin   { color: var(--accent); }
+        .profile-role.role-guest   { color: var(--muted); }
+
+        .profile-logout {
+            font-size: 15px;
+            color: var(--muted);
+            text-decoration: none;
+            padding: 4px;
+            border-radius: 6px;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .profile-logout:hover { color: var(--rejected); background: rgba(245,92,92,0.1); }
+        .profile-logout.hidden { display: none; }
     </style>
 </head>
 <body>
@@ -499,34 +568,44 @@
 
     # Sidebar
     <aside class="sidebar">
-        <div class="sidebar-brand">
-            <h2>Cyberjaya Stray Scan</h2>
-            <p>Admin Dashboard</p>
+    <div class="sidebar-brand">
+        <h2>Cyberjaya Stray Scan</h2>
+        <p>Admin Dashboard</p>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <div class="nav-item active">
+            <span class="icon">📋</span> Reports
         </div>
-        <nav class="sidebar-nav">
-            <div class="nav-label">Menu</div>
-            <div class="nav-item active">
-                <span class="icon">📋</span> Reports
-            </div>
-            <div class="nav-item" onclick="window.location.href='/'">
-                <span class="icon">📝</span> Submit Form
-            </div>
-        </nav>
-        <div class="sidebar-stats">
-            <div class="stat-pill">
-                <span>Pending</span>
-                <span class="count pending" id="countPending">—</span>
-            </div>
-            <div class="stat-pill">
-                <span>Approved</span>
-                <span class="count approved" id="countApproved">—</span>
-            </div>
-            <div class="stat-pill">
-                <span>Rejected</span>
-                <span class="count rejected" id="countRejected">—</span>
-            </div>
+        <div class="nav-item" onclick="window.location.href='/'">
+            <span class="icon">📝</span> Submit Form
         </div>
-    </aside>
+    </nav>
+    <div class="sidebar-stats">
+        <div class="stat-pill">
+            <span>Pending</span>
+            <span class="count pending" id="countPending">—</span>
+        </div>
+        <div class="stat-pill">
+            <span>Approved</span>
+            <span class="count approved" id="countApproved">—</span>
+        </div>
+        <div class="stat-pill">
+            <span>Rejected</span>
+            <span class="count rejected" id="countRejected">—</span>
+        </div>
+    </div>
+
+    <!-- ── Profile card ── -->
+    <div class="sidebar-profile" id="sidebarProfile">
+        <div class="profile-avatar" id="profileAvatar">?</div>
+        <div class="profile-info">
+            <div class="profile-name" id="profileName">Loading...</div>
+            <div class="profile-role" id="profileRole"></div>
+        </div>
+        <a class="profile-logout" id="profileLogout" href="/logout" title="Logout">⏻</a>
+    </div>
+</aside>
 
     <!-- Main -->
     <main class="main">
@@ -846,6 +925,43 @@ async function deleteReport(id) {
         showToast('Network error. Please try again.', 'error');
     }
 }
+
+// Load profile info into sidebar
+async function loadProfile() {
+    try {
+        const res  = await fetch('/session-info');
+        const data = await res.json();
+
+        const avatar  = document.getElementById('profileAvatar');
+        const name    = document.getElementById('profileName');
+        const role    = document.getElementById('profileRole');
+        const logout  = document.getElementById('profileLogout');
+
+        if (data.logged_in) {
+            // Show first letter of email as avatar
+            avatar.textContent = data.email.charAt(0).toUpperCase();
+            avatar.classList.remove('guest');
+            name.textContent = data.email;
+            role.textContent = data.role;
+            role.className = `profile-role role-${data.role}`;
+            logout.classList.remove('hidden');
+        } else {
+            avatar.textContent = '👤';
+            avatar.classList.add('guest');
+            name.textContent = 'Guest';
+            role.textContent = 'Not logged in';
+            role.className = 'profile-role role-guest';
+            logout.classList.add('hidden');  // hide logout button for guests
+        }
+    } catch (e) {
+        console.warn('Could not load session info:', e);
+    }
+}
+
+// Initial load — replace the existing single line with both:
+loadReports();
+loadProfile();
+
     // Initial load
     loadReports();
 </script>

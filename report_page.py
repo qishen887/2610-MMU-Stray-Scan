@@ -5,6 +5,8 @@ import os
 import urllib.request
 import urllib.parse
 import json
+from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session
+
 
 
 def reverse_geocode(lat, lon):
@@ -76,7 +78,7 @@ with app.app_context():
 
 
 # Routes
-
+app.secret_key = 'mmu'  # same key as in the login file
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -85,6 +87,16 @@ def uploaded_file(filename):
 @app.route('/')
 def home():
     return redirect(url_for('homepage'))
+
+@app.route('/session-info')
+def session_info():
+    if 'user' in session:
+        return jsonify({
+            "logged_in": True,
+            "email": session['user'],
+            "role": session.get('role', 'unknown')
+        })
+    return jsonify({"logged_in": False})
 
 @app.route('/home')
 def homepage():
