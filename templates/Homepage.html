@@ -56,7 +56,9 @@
                     </div>
                     <hr class="menu-divider">
                     <a href="#" class="menu-item">Profile</a>
-                    <a href="#" class="menu-item" onclick="toggleSettings(); return false;">Settings</a>
+                    <a href="{{ url_for('settings_page') }}" style="display: block; padding: 10px; color: white; text-decoration: none;">
+    ⚙️ Setting
+</a>
                     <a href="{{ url_for('login_page') }}" class="menu-item text-danger">Log In</a>
                 </div>
             </div>
@@ -338,6 +340,16 @@ async function loadReportsOnMap() {
 loadReportsOnMap();
 
 function applyFilters() {
+if (event) {
+        event.stopPropagation(); // 阻止事件向上冒泡
+        event.preventDefault();  // 阻止默认的表单提交或刷新
+    }
+    
+    // 下面写你原来的筛选代码...
+    console.log("Filter button clicked!");
+    const types = document.getElementById('animalType').value;
+    // fetch(...)
+
     // 1. 收集被勾选的 Animal Type
     const typeInputs = document.querySelectorAll('input[name="animalFilter"]:checked');
     const selectedTypes = Array.from(typeInputs).map(input => input.value).join(',');
@@ -357,6 +369,7 @@ function applyFilters() {
         })
         .catch(err => console.error("Filter error:", err));
 }
+
 
 // 刷新地图的专用函数
 function updateMapMarkers(reports) {

@@ -221,5 +221,9 @@ def filter_reports():
             'animal_type': r.animal_type, 'health_status': r.health_status
         } for r in reports]
     })
+
+@app.route('/settings')
+def settings_page():
+    return render_template('settings.html')
 if __name__ == '__main__':
     app.run(debug=True)
