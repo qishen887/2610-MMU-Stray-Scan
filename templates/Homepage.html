@@ -23,7 +23,7 @@
     <span>Login</span>
 </div>
 
-<div class="sidebar-item" onclick="window.location.href=`{{ url_for('register_page ') }}`" title="Register" style="cursor: pointer;">
+<div class="sidebar-item" onclick="window.location.href=`{{ url_for('signup') }}`" title="Register" style="cursor: pointer;">
     <div style="font-size: 20px;">&#128221;</div>
     <span>Register</span>
 </div>
@@ -42,28 +42,80 @@
             <div class="spacer"></div>
 
 <div class="sidebar-item" onclick="toggleSettings()" title="Settings" style="cursor: pointer;">
-    <div style="font-size: 20px;">&#9881;</div>
-    <span>Settings</span>
-</div>
+            <div style="font-size: 20px;">&#9881;</div>
+            <span>Settings</span>
         </div>
-
-        <div id="main-content">
-            <header>
-                <h1 style="margin: 0;">Cyberjaya Stray Scan</h1>
-                <nav>
-                    <button>About</button>
-                    <button>Contact</button>
-                </nav>
-            </header>
-
-            <div id="map">
-                <button id="recenter-btn" onclick="recenterMap(event)">📍 Recenter to Origin</button>
+    </div> <div id="main-content">
+        <header>
+            <div class="user-profile-container">
+                <img src="{{ url_for('static', filename='images/default_avatar.jpg') }}" alt="Avatar" class="user-avatar" id="avatarTrigger" onclick="toggleUserMenu()">
+                
+                <div class="user-dropdown-menu" id="userMenu">
+                    <div class="user-info">
+                        <span class="user-name">Guest</span>
+                    </div>
+                    <hr class="menu-divider">
+                    <a href="#" class="menu-item">Profile</a>
+                    <a href="{{ url_for('settings_page') }}" style="display: block; padding: 10px; color: white; text-decoration: none;">
+    ⚙️ Setting
+</a>
+                    <a href="{{ url_for('login_page') }}" class="menu-item text-danger">Log In</a>
+                </div>
             </div>
 
+            <h1 style="margin: 0; padding-left: 60px;">Cyberjaya Stray Scan</h1>
+            <nav></nav>
+        </header>
+
+        <div id="map">
+            <button id="recenter-btn" onclick="recenterMap(event)">📍 Recenter to Origin</button>
+        </div>
             <section>
-                <h2>Quick Actions</h2>
-                <button style="background-color: #f09c16; color: white;">Report New Stray</button>
-            </section>
+    <h2>Quick Actions</h2>
+    <button id="filter-btn" onclick="toggleFilters(event)" style="background-color: #f09c16; color: white;"> Filters</button>
+</section>
+
+<div id="filterModal" class="settings-bottom-panel" style="display: none;">
+    <div class="console-box solid-version" style="max-width: 500px; margin: 0 auto;">
+        <div class="console-body" style="padding: 20px; color: white;">
+            <h3 style="margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 8px;">Map Filters</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <p style="font-weight: 600; margin-bottom: 8px; color: #f09c16;">Animal Type:</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    <label><input type="checkbox" name="animalFilter" value="dog" checked> 🐕 Dog</label>
+                    <label><input type="checkbox" name="animalFilter" value="cat" checked> 🐈 Cat</label>
+                    <label><input type="checkbox" name="animalFilter" value="rabbit" checked> 🐰 Rabbit</label>
+                    <label><input type="checkbox" name="animalFilter" value="bird" checked> 🐦 Bird</label>
+                    <label><input type="checkbox" name="animalFilter" value="squirrel" checked> 🐿️ Squirrel</label>
+                    <label><input type="checkbox" name="animalFilter" value="hamster" checked> 🐹 Hamster</label>
+                    <label><input type="checkbox" name="animalFilter" value="fish" checked> 🐠 Fish</label>
+                    <label><input type="checkbox" name="animalFilter" value="hedgehog" checked> 🦔 Hedgehog</label>
+                    <label><input type="checkbox" name="animalFilter" value="deer" checked> 🦌 Deer</label>
+                    <label><input type="checkbox" name="animalFilter" value="fox" checked> 🦊 Fox</label>
+                    <label><input type="checkbox" name="animalFilter" value="wild-bird" checked> 🦅 Wild Bird</label>
+                    <label><input type="checkbox" name="animalFilter" value="snake" checked> 🐍 Snake</label>
+                    <label><input type="checkbox" name="animalFilter" value="other" checked> Other</label>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <p style="font-weight: 600; margin-bottom: 8px; color: #f09c16;">Health Status:</p>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <label><input type="checkbox" name="healthFilter" value="healthy" checked> 💚 Healthy</label>
+                    <label><input type="checkbox" name="healthFilter" value="injured" checked> 🩹 Hurt</label>
+                    <label><input type="checkbox" name="healthFilter" value="sick" checked> 🤒 Sick</label>
+                    <label><input type="checkbox" name="healthFilter" value="unknown" checked> ❓ Not sure</label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                <button onclick="applyFilters()" style="background: #43e97b; color: black; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: 600;">Apply Filters</button>
+                <p class="console-status" onclick="closeFilters()" style="cursor:pointer; margin: 0; padding-top: 5px;">[ Close ]</p>
+            </div>
+        </div>
+    </div>
+</div>
         </div>
     </div>
 
@@ -85,6 +137,10 @@ map.on('locationfound', function(e) {
     // 把 "Origin Detected" 改成了 "Your current location"
     marker = L.marker(e.latlng).addTo(map).bindPopup("Your current location").openPopup();
 });
+map.on('locationerror', function(e) {
+    console.log("Location error: ", e.message);
+    alert("Location access blocked by browser. Showing default map area.");
+});
 
         // --- Logic Functions ---
 
@@ -94,9 +150,23 @@ map.on('locationfound', function(e) {
             setTimeout(() => { map.invalidateSize(); }, 350);
         }
 
-        function recenterMap(event) {
-            event.stopPropagation(); // Prevent map click event
-            map.flyTo(userPos || cyberCoord, 16);
+function recenterMap(event) {
+            event.stopPropagation(); // Prevent map click event bubbling
+            
+            // Check if user's actual location is successfully retrieved
+            if (userPos) {
+                // If a marker already exists on the map, remove it first to avoid duplicates
+                if (marker) map.removeLayer(marker);
+
+                // Add the marker to the user's current location and open its popup
+                marker = L.marker(userPos).addTo(map).bindPopup("Your current location").openPopup();
+
+                // If yes, fly smoothly to user's location with zoom level 16
+                map.flyTo(userPos, 16);
+            } else {
+                // If geolocation is pending or denied, fallback to default origin (Cyberjaya)
+                map.flyTo(cyberCoord, 15);
+            }
         }
 
         // Add marker on manual click
@@ -112,16 +182,26 @@ map.on('locationfound', function(e) {
 
 /* --- Improved Toggle Logic --- */
 
+// --- 升级版：智能跟随的 Settings Toggle ---
 function toggleSettings() {
     const modal = document.getElementById('settingsModal');
-    // Toggle between show (block) and hide (none)
+    const settingsBtn = document.querySelector('[title="Settings"]'); // 抓取 Settings 按钮
+
     if (modal.style.display === 'block') {
         modal.style.display = 'none';
     } else {
+        // 1. 获取 Settings 按钮在当前屏幕上的实时位置
+        const rect = settingsBtn.getBoundingClientRect();
+        
+        // 2. 覆盖 CSS 样式，强制它跟随按钮的坐标
+        modal.style.position = 'fixed';
+        modal.style.left = (rect.right + 15) + 'px'; // 自动定位到 Sidebar 右侧，留出 15px 的空隙
+        modal.style.bottom = (window.innerHeight - rect.bottom) + 'px'; // 底部完美与按钮对齐
+        
+        // 3. 显示面板
         modal.style.display = 'block';
     }
 }
-
 // Keep the specific close function for background clicks
 function closeSettings() {
     document.getElementById('settingsModal').style.display = 'none';
@@ -139,18 +219,171 @@ function changeBg(color) {
         mainContent.style.backgroundColor = color;
     }
 }
+// 切换字体逻辑
+function changeFont(fontFamily) {
+    // 获取整个页面的根容器或 body
+    document.body.style.fontFamily = fontFamily;
+}
 
-// Close if user clicks anywhere outside the panel
+
+// --- Filters 筛选面板控制逻辑 ---
+
+// 打开或关闭 Filter 面板
+function toggleFilters(event) {
+    if (event) event.stopPropagation(); // 阻止事件冒泡，防止触发 window 点击
+    const modal = document.getElementById('filterModal');
+    if (modal.style.display === 'block') {
+        modal.style.display = 'none';
+    } else {
+        modal.style.display = 'block';
+    }
+}
+
+// 关闭 Filter 面板
+function closeFilters() {
+    document.getElementById('filterModal').style.display = 'none';
+}
+
+
+function changeFont(fontType) {
+    let fontStack = "";
+    
+    switch(fontType) {
+        case 'sans':
+            fontStack = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+            break;
+        case 'serif':
+            fontStack = "Georgia, 'Times New Roman', Times, serif";
+            break;
+        case 'mono':
+            fontStack = "'Courier New', Courier, monospace";
+            break;
+        default:
+            fontStack = "sans-serif";
+    }
+    
+    document.body.style.fontFamily = fontStack;
+    localStorage.setItem('userFont', fontStack);
+}
+// Toggle the user dropdown menu
+function toggleUserMenu() {
+    const menu = document.getElementById('userMenu');
+    menu.classList.toggle('show');
+}
+
+// Global click listener to close menus when clicking outside
+// Global click listener: 一次性处理所有面板（头像菜单、设置、筛选）的点击外部关闭逻辑
 window.addEventListener('click', function(event) {
-    const modal = document.getElementById('settingsModal');
+    // 1. 处理设置面板的关闭
+    const settingsModal = document.getElementById('settingsModal');
     const settingsBtn = document.querySelector('[title="Settings"]');
-    // If click is not on the modal and not on the settings button, close it
-    if (modal.style.display === 'block' && 
-        !modal.contains(event.target) && 
-        !settingsBtn.contains(event.target)) {
+    if (settingsModal && settingsModal.style.display === 'block' && 
+        !settingsModal.contains(event.target) && 
+        (!settingsBtn || !settingsBtn.contains(event.target))) {
         closeSettings();
     }
+
+    // 2. 处理筛选面板的关闭
+    const filterModal = document.getElementById('filterModal');
+    const filterBtn = document.getElementById('filter-btn');
+    if (filterModal && filterModal.style.display === 'block' && 
+        !filterModal.contains(event.target) && 
+        (!filterBtn || !filterBtn.contains(event.target))) {
+        closeFilters();
+    }
+
+    // 3. 处理头像下拉菜单的关闭
+    const userMenu = document.getElementById('userMenu');
+    const avatarTrigger = document.getElementById('avatarTrigger');
+    if (userMenu && userMenu.classList.contains('show')) {
+        if (event.target !== avatarTrigger && !userMenu.contains(event.target)) {
+            userMenu.classList.remove('show');
+        }
+    }
 });
+// --- Fetch and Render All Database Reports on Map ---
+async function loadReportsOnMap() {
+    try {
+        // Request report coordinates from the backend API
+        const response = await fetch('/api/get_all_reports');
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            const reports = result.data;
+            
+            // Loop through each report record
+            reports.forEach(report => {
+                // Ensure geographical coordinates are valid before creating markers
+                if (report.lat && report.lng) {
+                    // Initialize and place the marker on the map
+                    const marker = L.marker([report.lat, report.lng]).addTo(map);
+                    
+                    // Bind an informative popup window to display detailed info on click
+                    marker.bindPopup(`
+                        <div style="font-family: Arial, sans-serif; line-height: 1.4;">
+                            <strong style="color: #2E4057;">Report #${report.id}</strong><br>
+                            <b>Animal:</b> ${report.animal_type}<br>
+                            <b>Quantity:</b> ${report.quantity}<br>
+                            <b>Condition:</b> ${report.health_status}<br>
+                            <b>Location:</b> ${report.address}
+                        </div>
+                    `);
+                }
+            });
+        }
+    } catch (error) {
+        console.error("Failed to fetch locations from database:", error);
+    }
+}
+
+// Invoke the function to initialize map marking on page load
+loadReportsOnMap();
+
+function applyFilters() {
+if (event) {
+        event.stopPropagation(); // 阻止事件向上冒泡
+        event.preventDefault();  // 阻止默认的表单提交或刷新
+    }
+    
+    // 下面写你原来的筛选代码...
+    console.log("Filter button clicked!");
+    const types = document.getElementById('animalType').value;
+    // fetch(...)
+
+    // 1. 收集被勾选的 Animal Type
+    const typeInputs = document.querySelectorAll('input[name="animalFilter"]:checked');
+    const selectedTypes = Array.from(typeInputs).map(input => input.value).join(',');
+    
+    // 2. 收集被勾选的 Health Status
+    const healthInputs = document.querySelectorAll('input[name="healthFilter"]:checked');
+    const selectedHealths = Array.from(healthInputs).map(input => input.value).join(',');
+    
+    // 3. 发送给后端
+    fetch(`/api/filter_reports?types=${selectedTypes}&healths=${selectedHealths}`)
+        .then(res => res.json())
+        .then(result => {
+            if (result.status === 'success') {
+                updateMapMarkers(result.data); // 刷新地图
+                closeFilters(); // 关闭面板
+            }
+        })
+        .catch(err => console.error("Filter error:", err));
+}
+
+
+// 刷新地图的专用函数
+function updateMapMarkers(reports) {
+    // 先移除当前地图上的所有 marker (假设你有一个 markers 数组)
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    
+    // 重新添加
+    reports.forEach(r => {
+        const marker = L.marker([r.lat, r.lng]).addTo(map)
+                        .bindPopup(`${r.animal_type} (${r.health_status})`);
+        markers.push(marker);
+    });
+}
     </script>
 <div id="settingsModal" class="settings-bottom-panel">
     <div class="console-box solid-version">
@@ -168,6 +401,16 @@ window.addEventListener('click', function(event) {
                     <span>Deep Blue</span>
                     <div class="color-preview" style="background: #0f172a;"></div>
                 </div>
+                
+<div class="settings-item" onclick="changeFont('sans')">
+    <span>Modern Sans</span>
+</div>
+<div class="settings-item" onclick="changeFont('mono')">
+    <span>Code Monospace</span>
+</div>
+<div class="settings-item" onclick="changeFont('serif')">
+    <span>Elegant Serif</span>
+</div>
             </div>
             <p class="console-status" onclick="closeSettings()" style="cursor:pointer; text-align:center;">[ Close Panel ]</p>
         </div>

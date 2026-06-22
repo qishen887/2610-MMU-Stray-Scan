@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* 💡 全屏通栏布局 + 白色明亮主题样式 */
+        body.settings-page {
+            background-color: #ffffff !important; /* 页面整体背景变成纯白 */
+            color: #333333 !important;            /* 全局文字变成深灰色 */
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;             /* 让侧边栏和内容区左右并排 */
+            height: 100vh !important;             /* 铺满整个浏览器高度 */
+            overflow: hidden !important;          /* 防止整个网页出现双滚动条 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        }
+
+        /* --- 1. 左侧功能分区 (通栏侧边栏，完美锁死在最左边) --- */
+        .settings-sidebar {
+            width: 260px !important;
+            min-width: 260px !important;
+            height: 100vh !important;
+            background-color: #f8f9fa !important; /* 侧边栏使用优雅的浅灰色背景 */
+            border-right: 1px solid #e9ecef !important; /* 精致的淡灰色右侧分隔线 */
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        /* 返回主页按钮：在白色主题下，使用深色按钮形成高级的视觉对比 */
+        .back-btn {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #1e1e1e !important; /* 深黑背景 */
+            color: #ffffff !important;            /* 纯白文字 */
+            border: none !important;
+            padding: 12px 16px !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            margin: 25px 15px 15px 15px !important; 
+            width: calc(100% - 30px) !important;  /* 自动撑满侧边栏减去边距的宽度 */
+            box-sizing: border-box !important;
+            transition: background-color 0.2s !important;
+            position: static !important; 
+            float: none !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        }
+
+        .back-btn:hover {
+            background-color: #333333 !important; /* 悬停时稍微变浅一点 */
+        }
+
+        .back-btn span {
+            margin-right: 8px !important;
+            font-size: 16px !important;
+            display: inline-block !important;
+            line-height: 1 !important;
+        }
+
+        /* 侧边栏项目列表 */
+        .sidebar-list {
+            list-style: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        .sidebar-item {
+            display: flex !important;
+            align-items: center !important;
+            padding: 12px 20px !important;
+            color: #495057 !important; /* 明亮主题下的中性深灰字 */
+            text-decoration: none !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s, color 0.2s !important;
+            border-radius: 8px !important;
+            margin: 4px 12px !important; 
+            font-weight: 500 !important;
+        }
+
+        .sidebar-item:hover {
+            background-color: rgba(0, 0, 0, 0.04) !important; /* 鼠标悬停时有淡淡的灰色痕迹 */
+            color: #000000 !important;
+        }
+
+        /* 蓝色高亮选中项 */
+        .sidebar-item.selected {
+            background-color: #007bff !important; /* 经典的皇家蓝高亮 */
+            color: #ffffff !important;
+            font-weight: 600 !important;
+        }
+
+        .sidebar-icon {
+            margin-right: 14px !important;
+            font-size: 18px !important;
+            width: 20px !important;
+            text-align: center !important;
+        }
+
+        /* --- 2. 右侧主内容区域 (铺满剩下所有的白色空间) --- */
+        .settings-content {
+            flex: 1 !important;
+            padding: 40px !important;
+            overflow-y: auto !important;          /* 如果内容过多，这里会自动出现滚动条 */
+            background-color: #ffffff !important; /* 纯白内容背景 */
+        }
+
+        .settings-content h1 {
+            color: #212529 !important;
+            margin-top: 0 !important;
+            border-bottom: 1px solid #e9ecef !important; /* 标题下方的精致分割线 */
+            padding-bottom: 15px !important;
+            margin-bottom: 25px !important;
+        }
+
+        /* 设置卡片选项 */
+        .setting-opt {
+            margin-bottom: 20px !important;
+            padding: 20px !important;
+            background-color: #f8f9fa !important; /* 选项容器带一点极淡的灰，让界面更有层次感 */
+            border-radius: 8px !important;
+            border: 1px solid #e9ecef !important;
+        }
+
+        .setting-opt h3 {
+            margin-top: 0 !important;
+            color: #212529 !important;
+        }
+
+        .setting-opt p {
+            color: #6c757d !important; /* 详情文字使用次要灰色 */
+            margin-bottom: 0 !important;
+        }
+    </style>
+</head>
+<body class="settings-page">
+
+    <div class="settings-sidebar">
+        
+        <button onclick="window.location.href=`{{ url_for('home') }}`" class="back-btn">
+            <span>&#11178;</span> Back to Homepage
+        </button>
+
+        <div style="border-top: 1px solid #e9ecef; margin: 5px 15px 15px 15px;"></div>
+
+        <ul class="sidebar-list">
+            <li class="sidebar-item selected">
+                <span class="sidebar-icon">🏠</span> General
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">👤</span> User Profile
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">🗺️</span> Maps & Reports
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">🎨</span> Appearance
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">⚙️</span> Advanced
+            </li>
+        </ul>
+    </div>
+
+    <div class="settings-content">
+        <h1>⚙️ General Settings</h1>
+        
+        <div class="setting-opt">
+            <h3>Welcome to the detailed settings page.</h3>
+            <p>Welcome, you are logged in.</p>
+            <p>Click on the categories in the sidebar to change settings.</p>
+        </div>
+        
+        <div class="setting-opt" style="color: #adb5bd;">
+            (We will add functional settings here in the future)
+        </div>
+    </div>
+
+</body>
+</html>
