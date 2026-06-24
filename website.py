@@ -171,13 +171,17 @@ def report():
     return render_template('report_page.html')
 
 
-# 6. 【地图标记专用接口】供主页 Homepage.html 用 Fetch 异步获取所有标记数据
+from sqlalchemy import and_
+
 @app.route('/api/get_all_reports', methods=['GET'])
 def get_all_reports():
     try:
         reports = AnimalReport.query.all()
         report_list = []
         for r in reports:
+            # ✨ New condition: Generate the access link if there's an image name in the DB; otherwise, set to None
+            img_url = url_for('uploaded_file', filename=r.image) if getattr(r, 'image', None) else None
+            
             report_list.append({
                 'id': r.id,
                 'lat': r.latitude,
@@ -185,45 +189,17 @@ def get_all_reports():
                 'address': r.address if r.address else f"{r.latitude}, {r.longitude}",
                 'animal_type': r.animal_type,
                 'quantity': r.quantity,
-                'health_status': r.health_status
+                'health_status': r.health_status,
+                'image_url': img_url  # ✨ New line added to pass the URL to the frontend
             })
         return jsonify({'status': 'success', 'data': report_list})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-from sqlalchemy import and_
-
-@app.route('/api/filter_reports', methods=['GET'])
-def filter_reports():
-    # 获取前端传来的多个勾选项（例如 ?types=cat,dog&healths=healthy）
-    types_arg = request.args.get('types', '')
-    healths_arg = request.args.get('healths', '')
-    
-    # 将字符串转为列表
-    selected_types = types_arg.split(',') if types_arg else []
-    selected_healths = healths_arg.split(',') if healths_arg else []
-    
-    query = AnimalReport.query
-    
-    # 如果用户选了，就执行数据库过滤
-    if selected_types:
-        query = query.filter(AnimalReport.animal_type.in_(selected_types))
-    if selected_healths:
-        query = query.filter(AnimalReport.health_status.in_(selected_healths))
-        
-    reports = query.all()
-    
-    # 转换为 JSON 返回
-    return jsonify({
-        'status': 'success',
-        'data': [{
-            'lat': r.latitude, 'lng': r.longitude,
-            'animal_type': r.animal_type, 'health_status': r.health_status
-        } for r in reports]
-    })
-
 @app.route('/settings')
 def settings_page():
     return render_template('settings.html')
+from flask import send_from_directory, url_for
+
 if __name__ == '__main__':
     app.run(debug=True)
