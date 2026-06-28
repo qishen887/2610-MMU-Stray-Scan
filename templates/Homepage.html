@@ -318,17 +318,35 @@ async function loadReportsOnMap() {
                     // Initialize and place the marker on the map
                     const marker = L.marker([report.lat, report.lng]).addTo(map);
                     
-                    // Bind an informative popup window to display detailed info on click
-                    marker.bindPopup(`
-                        <div style="font-family: Arial, sans-serif; line-height: 1.4;">
-                            <strong style="color: #2E4057;">Report #${report.id}</strong><br>
-                            <b>Animal:</b> ${report.animal_type}<br>
+                    // 1. Build the base text layout with dark console styling (Aligned to 'report' variable)
+                    let popupContent = `
+                        <div style="font-family: monospace; color: #fff; background: #1e1e1e; padding: 8px; border-radius: 4px;">
+                            <b style="color: #f09c16;">[Report ID: ${report.id}]</b><br>
+                            <b>Location:</b> ${report.address}<br>
+                            <b>Type:</b> ${report.animal_type}<br>
                             <b>Quantity:</b> ${report.quantity}<br>
-                            <b>Condition:</b> ${report.health_status}<br>
-                            <b>Location:</b> ${report.address}
-                        </div>
-                    `);
-                }
+                            <b>Health:</b> ${report.health_status}
+                    `;
+
+                    // 2. Dynamic check: Append the image tag safely only if image_url is returned from the backend
+                    if (report.image_url) {
+                        popupContent += `
+                            <br><br>
+                            <div style="text-align: center;">
+                                <img src="${report.image_url}" alt="Animal Image" style="width: 100%; max-width: 180px; height: auto; border-radius: 4px; border: 1px solid #333; margin-top: 5px;">
+                            </div>
+                        `;
+                    }
+
+                    // 3. Close the container HTML element safely
+                    popupContent += `</div>`;
+
+                    // 4. Pass the combined string variable straight into your bindPopup function
+                    marker.bindPopup(popupContent);
+                    
+                    // Optional tracking (Uncomment if you use a global tracking array for filters)
+                    // if (typeof markers !== 'undefined') markers.push(marker);
+                } // 👈 FIXED: Added missing closing brace for 'if (report.lat && report.lng)'
             });
         }
     } catch (error) {
@@ -377,12 +395,34 @@ function updateMapMarkers(reports) {
     markers.forEach(m => map.removeLayer(m));
     markers = [];
     
-    // 重新添加
-    reports.forEach(r => {
-        const marker = L.marker([r.lat, r.lng]).addTo(map)
-                        .bindPopup(`${r.animal_type} (${r.health_status})`);
-        markers.push(marker);
-    });
+    report.forEach(r => {
+    // 1. Prepare the basic text information that must be displayed
+    let popupContent = `
+        <div style="font-family: sans-serif; min-width: 180px;">
+            <h4 style="margin: 0 0 8px 0; color: #f09c16;">${r.animal_type} (x${r.quantity})</h4>
+            <p style="margin: 0 0 4px 0;"><b>Health:</b> ${r.health_status}</p>
+            <p style="margin: 0 0 4px 0;"><b>Address:</b> ${r.address}</p>
+    `;
+    
+    // 2. Core condition: If the backend sends an image_url, append the <img> tag
+    if (r.image_url) {
+        popupContent += `
+            <div style="margin-top: 10px; text-align: center;">
+                <img src="${r.image_url}" alt="Animal Image" style="max-width: 100%; max-height: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            </div>
+        `;
+    }
+
+    // 3. Close the outer div container
+    popupContent += `</div>`;
+
+    // 4. Create the marker and bind the assembled HTML popup
+    let marker = L.marker([r.lat, r.lng]).bindPopup(popupContent);
+    
+    // 5. Add the marker to the map and push it to your tracking array
+    marker.addTo(map);
+    markers.push(marker); 
+});
 }
     </script>
 <div id="settingsModal" class="settings-bottom-panel">
