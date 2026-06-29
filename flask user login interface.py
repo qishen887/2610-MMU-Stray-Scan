@@ -18,7 +18,7 @@ users = {
 
 @app.route('/')
 def index():
-    #If the user is already logged in, send him to the backend directly without logging in again.
+    # # If the user is already logged in, send him to the backend directly without logging in again.
     if 'user' in session:
         if session['role'] == 'admin':
             return redirect(url_for('admin_dashboard'))
@@ -47,15 +47,15 @@ def login():
             session['role'] = user_data.get('role', 'customer')
         
         if session['role'] == 'admin':
-            flash("Welcome, {session['user']}! You are logged in as an administrator.")
+            flash(f"Welcome, {session['user']}! You are logged in as an administrator.")
             return redirect(url_for('admin_dashboard'))
         else:
-            flash("Welcome, {session['user']}! You are logged in as a customer.")
+            flash(f"Welcome, {session['user']}! You are logged in as a customer.")
             return redirect(url_for('user_dashboard'))
     else:
         # Authentication failed
         flash("Invalid email or password. Please try again.")
-        return redirect(url_for('login_page'))
+        return redirect(url_for('index'))
 
 # --- Admin 专用页面 ---
 @app.route('/admin-dashboard')
