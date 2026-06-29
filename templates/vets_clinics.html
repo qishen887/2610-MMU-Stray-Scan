@@ -1,0 +1,48 @@
+{% extends "Homepage.html" %}
+{% block content %}
+
+<div class="container mt-4">
+  <h2>🏥 Vet Clinics in Cyberjaya</h2>
+  <p class="text-muted">Find nearby veterinary clinics for stray animals.</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-info">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <table class="table table-bordered table-hover mt-3">
+    <thead class="table-dark">
+      <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th>Phone</th>
+        <th>Operating Hours</th>
+        <th>Coordinates</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for clinic in clinics %}
+      <tr>
+        <td>{{ clinic.name }}</td>
+        <td>{{ clinic.address }}</td>
+        <td>{{ clinic.phone }}</td>
+        <td>{{ clinic.operating_hours }}</td>
+        <td>
+          {% if clinic.latitude %}
+            {{ clinic.latitude }}, {{ clinic.longitude }}
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="text-center text-muted">No vet clinics available yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

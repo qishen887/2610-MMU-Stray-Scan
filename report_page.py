@@ -120,16 +120,16 @@ def homepage():
 def report():
     return render_template('report_page.html')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_page():
-    if 'user' in session:
-        if session['role'] == 'admin':
-            return redirect(url_for('admin'))
-        return redirect(url_for('homepage'))
-    return render_template('login.html')
+    if request.method == 'GET':
+        if 'user' in session:
+            if session['role'] == 'admin':
+                return redirect(url_for('admin'))
+            return redirect(url_for('homepage'))
+        return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
-def login():
+    # POST — handle login form submission
     email    = request.form.get('email')
     password = request.form.get('password')
 
@@ -505,18 +505,16 @@ def export_pdf():
     buf.seek(0)
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name="animal_reports.pdf")
- 
-@app.route('/admin/vet-clinics')
-def vet_clinics():
-    if not session.get('logged_in'):
-        return redirect(url_for('login_page'))
-    clinics = VetClinic.query.order_by(VetClinic.name).all()
-    return render_template('vet_clinics.html', clinics=clinics)
 
+
+@app.route('/vet-clinics')
+def vet_clinics():
+    clinics = VetClinic.query.order_by(VetClinic.name).all()
+    return render_template('vets_clinics.html', clinics=clinics)
 
 @app.route('/admin/vet-clinics/add', methods=['GET', 'POST'])
 def add_vet_clinic():
-    if not session.get('logged_in'):
+    if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
     if request.method == 'POST':
         clinic = VetClinic(
@@ -531,12 +529,13 @@ def add_vet_clinic():
         db.session.commit()
         flash('Vet clinic added successfully!', 'success')
         return redirect(url_for('vet_clinics'))
-    return render_template('vet_clinics.html', form_mode='add', clinics=VetClinic.query.all())
+    return render_template('vets_clinics.html', form_mode='add', clinics=VetClinic.query.all())
+
 
 
 @app.route('/admin/vet-clinics/edit/<int:clinic_id>', methods=['GET', 'POST'])
 def edit_vet_clinic(clinic_id):
-    if not session.get('logged_in'):
+    if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
     clinic = VetClinic.query.get_or_404(clinic_id)
     if request.method == 'POST':
@@ -548,13 +547,13 @@ def edit_vet_clinic(clinic_id):
         clinic.longitude = float(request.form.get('longitude')) if request.form.get('longitude') else None
         db.session.commit()
         flash('Vet clinic updated!', 'success')
-        return redirect(url_for('vet_clinics'))
+        return render_template('vets_clinics.html', form_mode='edit', edit_clinic=clinic, clinics=VetClinic.query.all())
     return render_template('vet_clinics.html', form_mode='edit', edit_clinic=clinic, clinics=VetClinic.query.all())
 
 
 @app.route('/admin/vet-clinics/delete/<int:clinic_id>', methods=['POST'])
 def delete_vet_clinic(clinic_id):
-    if not session.get('logged_in'):
+    if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
     clinic = VetClinic.query.get_or_404(clinic_id)
     db.session.delete(clinic)
