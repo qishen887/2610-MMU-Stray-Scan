@@ -264,3 +264,10 @@ button {
 #recenter-btn:hover {
     background-color: #f0f0f0;
 }
+
+/* Force the filter button/panel to the topmost layer above Leaflet map */
+.filter-panel, 
+#applyFilterBtn { 
+    position: relative; 
+    z-index: 9999 !important; 
+}

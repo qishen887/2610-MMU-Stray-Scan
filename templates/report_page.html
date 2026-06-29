@@ -504,7 +504,7 @@
                 const addr = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 document.getElementById('addressHidden').value = addr;
                 document.getElementById('pinLabel').textContent = '📍 ' + addr;
-                marker.bindPopup(addr).openPopup();
+                bindPopup(addr).openPopup();
             } catch (err) {
                 // Nominatim failed — store raw coordinates as the address
                 const addr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;

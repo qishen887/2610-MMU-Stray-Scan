@@ -176,12 +176,22 @@ from sqlalchemy import and_
 @app.route('/api/get_all_reports', methods=['GET'])
 def get_all_reports():
     try:
-        reports = AnimalReport.query.all()
+        # Get the filter query parameter sent from the frontend (e.g., 'cat', 'dog')
+        animal_type_query = request.args.get('animal_type', '')
+
+        # Filter the database query if a specific animal type is selected and not 'all'
+        if animal_type_query and animal_type_query != 'all':
+            reports = AnimalReport.query.filter_by(animal_type=animal_type_query).all()
+        else:
+            # Fallback to retrieving all reports if no filter or 'all' is requested
+            reports = AnimalReport.query.all()
+
         report_list = []
         for r in reports:
-            # ✨ New condition: Generate the access link if there's an image name in the DB; otherwise, set to None
+            # Safely generate the image static access link if an image file exists in the database
             img_url = url_for('uploaded_file', filename=r.image) if getattr(r, 'image', None) else None
             
+            # Pack database record values into a standard data dictionary format
             report_list.append({
                 'id': r.id,
                 'lat': r.latitude,
@@ -190,10 +200,11 @@ def get_all_reports():
                 'animal_type': r.animal_type,
                 'quantity': r.quantity,
                 'health_status': r.health_status,
-                'image_url': img_url  # ✨ New line added to pass the URL to the frontend
+                'image_url': img_url
             })
         return jsonify({'status': 'success', 'data': report_list})
     except Exception as e:
+        # Return internal server error message if database tracking fails
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/settings')

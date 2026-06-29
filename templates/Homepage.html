@@ -110,7 +110,7 @@
             </div>
 
             <div style="display: flex; justify-content: space-between; margin-top: 15px;">
-                <button onclick="applyFilters()" style="background: #43e97b; color: black; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: 600;">Apply Filters</button>
+                <button type="button" id="ApplyFilterBtn" onclick="applyFilter(event)">Apply Filter</button>
                 <p class="console-status" onclick="closeFilters()" style="cursor:pointer; margin: 0; padding-top: 5px;">[ Close ]</p>
             </div>
         </div>
@@ -207,16 +207,28 @@ function closeSettings() {
     document.getElementById('settingsModal').style.display = 'none';
 }
 
-// Background change logic
-function changeBg(color) {
+// Background theme change logic
+function changeBg(color, event) {
+    // Robustness: Prevent click event from bubbling up and accidentally closing the panel
+    if (event) {
+        event.stopPropagation(); 
+    }
+
+    // Target the main content area element
     const mainContent = document.getElementById('main-content');
     if (!mainContent) return;
 
+    // Evaluate the selected color token
     if (color === 'default') {
+        // Reset custom background image and background color to inherit default style.css
         mainContent.style.backgroundImage = ""; 
+        mainContent.style.backgroundColor = ""; 
+        console.log("Theme reverted to default.");
     } else {
+        // Disable default background image and apply specific solid background color
         mainContent.style.backgroundImage = "none";
         mainContent.style.backgroundColor = color;
+        console.log("Theme switched to custom color:", color);
     }
 }
 // 切换字体逻辑
@@ -357,35 +369,30 @@ async function loadReportsOnMap() {
 // Invoke the function to initialize map marking on page load
 loadReportsOnMap();
 
-function applyFilters() {
-if (event) {
-        event.stopPropagation(); // 阻止事件向上冒泡
-        event.preventDefault();  // 阻止默认的表单提交或刷新
+function applyFilter(event) {
+    // Prevent the click event from bubbling up to the window global click listener
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
     }
-    
-    // 下面写你原来的筛选代码...
-    console.log("Filter button clicked!");
-    const types = document.getElementById('animalType').value;
-    // fetch(...)
 
-    // 1. 收集被勾选的 Animal Type
-    const typeInputs = document.querySelectorAll('input[name="animalFilter"]:checked');
-    const selectedTypes = Array.from(typeInputs).map(input => input.value).join(',');
-    
-    // 2. 收集被勾选的 Health Status
-    const healthInputs = document.querySelectorAll('input[name="healthFilter"]:checked');
-    const selectedHealths = Array.from(healthInputs).map(input => input.value).join(',');
-    
-    // 3. 发送给后端
-    fetch(`/api/filter_reports?types=${selectedTypes}&healths=${selectedHealths}`)
-        .then(res => res.json())
-        .then(result => {
-            if (result.status === 'success') {
-                updateMapMarkers(result.data); // 刷新地图
-                closeFilters(); // 关闭面板
+    // Retrieve the current user selection value from the animal filter dropdown menu
+    const animalType = document.getElementById('animalTypeSelect').value;
+
+    // Send an asynchronous fetch request to the upgraded backend API endpoint
+    fetch(`/api/get_all_reports?animal_type=${animalType}`)
+        .then(response => response.json())
+        .then(res => {
+            if (res.status === 'success') {
+                // Clear existing old markers from the map layout to prevent overlays
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = []; // Reset the tracking markers array template
+
+                // Re-render and populate active map markers with the newly filtered datasets
+                updateMapMarkers(res.data); 
             }
         })
-        .catch(err => console.error("Filter error:", err));
+        .catch(err => console.error("Filter request error trace:", err));
 }
 
 
@@ -429,18 +436,20 @@ function updateMapMarkers(reports) {
     <div class="console-box solid-version">
         <div class="console-body">
             <div class="settings-list">
-                <div class="settings-item" onclick="changeBg('default')">
-                    <span>Default Theme</span>
-                    <div class="color-preview" style="background: linear-gradient(135deg, #f09c16, #000);"></div>
-                </div>
-                <div class="settings-item" onclick="changeBg('#1a1a1a')">
-                    <span>Midnight Black</span>
-                    <div class="color-preview" style="background: #1a1a1a;"></div>
-                </div>
-                <div class="settings-item" onclick="changeBg('#0f172a')">
-                    <span>Deep Blue</span>
-                    <div class="color-preview" style="background: #0f172a;"></div>
-                </div>
+                <div class="settings-item" onclick="changeBg('default', event)">
+    <span>Default Theme</span>
+    <div class="color-preview" style="background: linear-gradient(#f09c16, black);"></div>
+</div>
+
+<div class="settings-item" onclick="changeBg('#1a1a1a', event)">
+    <span>Midnight Black</span>
+    <div class="color-preview" style="background: #1a1a1a;"></div>
+</div>
+
+<div class="settings-item" onclick="changeBg('#0f172a', event)">
+    <span>Deep Blue</span>
+    <div class="color-preview" style="background: #0f172a;"></div>
+</div>
                 
 <div class="settings-item" onclick="changeFont('sans')">
     <span>Modern Sans</span>
