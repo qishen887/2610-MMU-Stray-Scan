@@ -55,7 +55,7 @@ def login():
     else:
         # Authentication failed
         flash("Invalid email or password. Please try again.")
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
 
 # --- Admin 专用页面 ---
 @app.route('/admin-dashboard')
@@ -63,7 +63,7 @@ def admin_dashboard():
     # 安全拦截：防止普通用户或者没登录的人直接偷窥这个页面
     if 'user' not in session or session.get('role') != 'admin':
         flash("Access denied! Admins only.")
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
         
     return render_template('admin_page.html') # 指向你的管理后台 HTML
 
@@ -72,14 +72,14 @@ def admin_dashboard():
 def user_dashboard():
     if 'user' not in session:
         flash("Please login first.")
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
         
-    return render_template('homepage.html') # 指向你的用户界面 HTML
+    return render_template('Homepage.html') # 指向你的用户界面 HTML
 
 @app.route('/logout')
 def logout():
     session.clear() # Clear all login status
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 @app.route('/register')
 def register_page():
@@ -121,7 +121,7 @@ def signup():
     # 2. 检查用户是否已存在
     if email in users:
         flash("Email already registered. Please login.")
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
 
     # 3. 哈希加密密码并存储 (默认角色设为 customer)
     hashed_password = generate_password_hash(password)
