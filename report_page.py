@@ -1,11 +1,10 @@
-from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for
+from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta, timezone
 import os
 import urllib.request
 import urllib.parse
 import json
-from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -42,7 +41,7 @@ def utc_now():
 
 # Model
 class AnimalReport(db.Model):
-    __tablename__ = 'animal_reports'
+    __tablename__ = 'animals_reports'
 
     id            = db.Column(db.Integer, primary_key=True)
     animal_type   = db.Column(db.String(50),  nullable=False)   # value from dropdown
