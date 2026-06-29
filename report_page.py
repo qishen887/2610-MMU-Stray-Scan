@@ -264,6 +264,12 @@ def delete_report(report_id):   #Delete a report by ID.
 
 @app.route('/admin')
 def admin():
+    if 'user' not in session:
+        flash("Please log in to access the admin panel.")
+        return redirect(url_for('login_page'))
+    if session.get('role') != 'admin':
+        flash("Access denied. Admin privileges required.")
+        return redirect(url_for('homepage'))
     return render_template('admin_page.html')
 
 
@@ -320,8 +326,8 @@ def export_excel():
     }
  
     headers = ["ID", "Animal", "Custom Animal", "Location", "Quantity",
-               "Health Status", "Status", "Details", "Image", "Submitted At"]
-    col_widths = [6, 16, 16, 24, 10, 14, 12, 36, 28, 22]
+               "Health Status", "Status", "Details", "Image", "Submitted At", "Submitted By"]
+    col_widths = [6, 16, 16, 24, 10, 14, 12, 36, 28, 22, 24]
  
     # Write headers
     for col, (h, w) in enumerate(zip(headers, col_widths), 1):
@@ -348,6 +354,7 @@ def export_excel():
             report.details or "—",
             report.image or "—",
             report.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            report.submitted_by_email or "Guest",
         ]
         for c_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=r_idx, column=c_idx, value=value)
@@ -363,6 +370,13 @@ def export_excel():
                 cell.font = status_fonts.get(s, Font(name="Arial", size=10))
                 cell.alignment = Alignment(horizontal="center", vertical="center")
  
+            # Style the "Submitted By" cell
+            if c_idx == 11:
+                if value == "Guest":
+                    cell.font = Font(italic=True, color="888888", name="Arial", size=10)
+                else:
+                    cell.font = Font(color="2E4057", name="Arial", size=10)
+
         ws.row_dimensions[r_idx].height = 18
  
     # Summary row at the bottom
@@ -418,7 +432,7 @@ def export_pdf():
     ]
  
     # Table data
-    col_headers = ["ID", "Animal", "Location", "Qty", "Health", "Status", "Details", "Submitted"]
+    col_headers = ["ID", "Animal", "Location", "Qty", "Health", "Status", "Details", "Submitted", "Submitted By"]
     data = [col_headers]
     for rpt in reports:
         data.append([
@@ -430,9 +444,10 @@ def export_pdf():
             rpt.status.capitalize(),
             Paragraph(rpt.details or "—", wrap_style),
             rpt.created_at.strftime("%Y-%m-%d\n%H:%M"),
+            Paragraph(rpt.submitted_by_email or "<i>Guest</i>", wrap_style),
         ])
  
-    col_widths_pdf = [12*mm, 25*mm, 55*mm, 12*mm, 18*mm, 18*mm, 68*mm, 30*mm]
+    col_widths_pdf = [10*mm, 22*mm, 48*mm, 10*mm, 16*mm, 16*mm, 60*mm, 25*mm, 32*mm]
  
     STATUS_COLORS = {
         "pending":  colors.HexColor("#FFF3CD"),
