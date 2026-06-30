@@ -77,6 +77,14 @@
 
                         <form action="{{ url_for('signup') }}" method="POST" id="signupForm">
                             <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" name="username" class="form-control" placeholder="Enter your full name / username" required minlength="2" maxlength="50">
+                                <div class="form-text text-muted" style="font-size: 0.8rem;">
+                                * Please enter your real name or standard nickname.
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
                                 <label class="form-label">MMU Email address</label>
                                 <input type="email" name="email" class="form-control" placeholder="name@student.mmu.edu.my/@mmu.edu.my" required pattern=".+@student\.mmu\.edu\.my|.+@mmu\.edu\.my" title="Please use your official MMU email (@student.mmu.edu.my or @mmu.edu.my)">
                                 <div class="form-text text-muted" style="font-size: 0.8rem;">
