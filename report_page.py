@@ -20,8 +20,10 @@ def reverse_geocode(lat, lon):
         req = urllib.request.Request(url, headers={"User-Agent": "AnimalReportApp/1.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        print(f"[GEOCODE] lat={lat} lon={lon} -> {data}")
         return data.get("display_name", f"{lat}, {lon}")
-    except Exception:
+    except Exception as e:
+        print(f"[GEOCODE ERROR] lat={lat} lon={lon} -> {e}")
         return f"{lat}, {lon}"
 
 app = Flask(__name__)
@@ -181,15 +183,38 @@ def show_login():
         flash("Invalid email or password. Please try again.")
         return redirect(url_for('login_page'))
 
-@app.route('/forgot-password', methods=['GET'], endpoint='forgot_password_page')
+# Forgot password and reset password routes
+@app.route('/forgot-password')
 def forgot_password_page():
     return render_template('forgot_password.html')
 
-# === ADDED: Added a route for the form submission in your forgot_password.html ===
 @app.route('/reset-password', methods=['POST'])
 def reset_password():
-    flash("Password reset functionality is under construction.")
-    return redirect(url_for('login_page'))
+    email = request.form.get('email').lower().strip()
+    password = request.form.get('password')
+    confirm_password = request.form.get('confirm_password')
+
+    # reset password logic to the database
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("Email address not found. Please register first.")
+        return redirect(url_for('forgot_password_page'))
+
+    if password != confirm_password:
+        flash("Passwords do not match!")
+        return redirect(url_for('forgot_password_page'))
+    
+    if not (len(password) == 8 and password.isdigit()):
+        flash("Format error: Password must be exactly 8 digits!")
+        return redirect(url_for('forgot_password_page'))
+
+    # hash the new password and update the user record
+    user.password = generate_password_hash(password)
+    db.session.commit()
+
+    flash("Password reset successfully! Please login with your new password.")
+    return redirect(url_for('show_login'))
+from flask import send_from_directory, url_for
 
 @app.route('/register')
 @app.route('/signup', methods=['GET', 'POST'])
@@ -253,14 +278,25 @@ def session_info():
         return jsonify({"logged_in": True, "email": session['user'], "role": session['role']})
     return jsonify({"logged_in": False})
 
+@app.route('/reverse-geocode', methods=['GET'])
+def reverse_geocode_endpoint():
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    if not lat or not lon:
+        return jsonify({"status": "error", "message": "lat and lon are required"}), 400
+    address = reverse_geocode(lat, lon)
+    return jsonify({"status": "success", "address": address})
+
 @app.route('/submit', methods=['POST'])
-def submit():  # Receive the form, save the image, write a row to the DB.
+def submit():  
     try:
         animal_type   = request.form.get('animalType')
         custom_animal = request.form.get('customAnimal') or None
         address       = request.form.get('address') or None
         latitude      = request.form.get('latitude')
         longitude     = request.form.get('longitude')
+        if not address and latitude and longitude:
+            address = reverse_geocode(latitude, longitude)
         quantity      = request.form.get('quantity')
         health_status = request.form.get('healthStatus')
         details       = request.form.get('details') or None
