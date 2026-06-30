@@ -11,6 +11,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
+    {% set logged_in = session.get('user') %}
+    {% set display_name = session.get('display_name') or (session.get('user').split('@')[0] if session.get('user') else 'Guest') %}
 
     <div class="app-container">
         <div id="sidebar">
@@ -18,6 +20,12 @@
                 <div style="font-size: 24px;">&#9776;</div>
             </div>
             
+{% if logged_in %}
+<div class="sidebar-item" onclick="window.location.href=`{{ url_for('logout') }}`" title="Logout" style="cursor: pointer;">
+    <div style="font-size: 20px;">&#9211;</div>
+    <span>Logout</span>
+</div>
+{% else %}
 <div class="sidebar-item" onclick="window.location.href=`{{ url_for('show_login') }}`" title="Login" style="cursor: pointer;">
     <div style="font-size: 20px;">&#128100;</div>
     <span>Login</span>
@@ -27,9 +35,10 @@
     <div style="font-size: 20px;">&#128221;</div>
     <span>Register</span>
 </div>
+{% endif %}
 
 <div class="sidebar-item" 
-         onclick="window.location.href=`{{ url_for('report_page') }}`" 
+         onclick="window.location.href=`{{ url_for('report') }}`" 
          title="Report" 
          style="cursor: pointer;">
         <div style="font-size: 20px;">&#128203;</div>
@@ -54,18 +63,29 @@
     </div> <div id="main-content">
         <header>
             <div class="user-profile-container">
+                {% if logged_in %}
+                <div class="user-avatar user-avatar-initial" id="avatarTrigger" onclick="toggleUserMenu()">{{ display_name[:1]|upper }}</div>
+                {% else %}
                 <img src="{{ url_for('static', filename='images/default_avatar.jpg') }}" alt="Avatar" class="user-avatar" id="avatarTrigger" onclick="toggleUserMenu()">
+                {% endif %}
                 
                 <div class="user-dropdown-menu" id="userMenu">
                     <div class="user-info">
-                        <span class="user-name">Guest</span>
+                        <span class="user-name">{{ display_name }}</span>
+                        {% if logged_in %}
+                        <span class="user-email">{{ session.get('user') }}</span>
+                        {% endif %}
                     </div>
                     <hr class="menu-divider">
                     <a href="#" class="menu-item">Profile</a>
                     <a href="{{ url_for('settings_page') }}" style="display: block; padding: 10px; color: white; text-decoration: none;">
     ⚙️ Setting
 </a>
-                    <a href="{{ url_for('login_page') }}" class="menu-item text-danger">Log In</a>
+                    {% if logged_in %}
+                    <a href="{{ url_for('logout') }}" class="menu-item text-danger">Log Out</a>
+                    {% else %}
+                    <a href="{{ url_for('show_login') }}" class="menu-item text-danger">Log In</a>
+                    {% endif %}
                 </div>
             </div>
 
@@ -132,6 +152,7 @@
         const cyberCoord = [2.9213, 101.6559];
         let userPos = null;
         var marker;
+        let reportMarkers = [];
 
         // --- Map Initialization ---
         var map = L.map('map').setView(cyberCoord, 15);
@@ -364,8 +385,7 @@ async function loadReportsOnMap() {
                     // 4. Pass the combined string variable straight into your bindPopup function
                     marker.bindPopup(popupContent);
                     
-                    // Optional tracking (Uncomment if you use a global tracking array for filters)
-                    // if (typeof markers !== 'undefined') markers.push(marker);
+                    reportMarkers.push(marker);
                 } // 👈 FIXED: Added missing closing brace for 'if (report.lat && report.lng)'
             });
         }
@@ -378,39 +398,54 @@ async function loadReportsOnMap() {
 loadReportsOnMap();
 
 function applyFilter(event) {
-    // Prevent the click event from bubbling up to the window global click listener
     if (event) {
         event.stopPropagation();
         event.preventDefault();
     }
 
-    // Retrieve the current user selection value from the animal filter dropdown menu
-    const animalType = document.getElementById('animalTypeSelect').value;
+    // 1. Get all checked animal types
+    const typeCheckboxes = document.querySelectorAll('input[name="animalType"]:checked');
+    const selectedTypes = Array.from(typeCheckboxes).map(cb => cb.value).join(',');
 
-    // Send an asynchronous fetch request to the upgraded backend API endpoint
-    fetch(`/api/get_all_reports?animal_type=${animalType}`)
+    // 2. Get all checked health statuses
+    const healthCheckboxes = document.querySelectorAll('input[name="healthFilter"]:checked');
+    const selectedHealths = Array.from(healthCheckboxes).map(cb => cb.value).join(',');
+
+    if (!selectedTypes || !selectedHealths) {
+        updateMapMarkers([]);
+        const filterModal = document.getElementById('filterModal');
+        if (filterModal) filterModal.style.display = 'none';
+        return;
+    }
+
+    // 3. Build the backend URL with query parameters
+    const filterUrl = `/api/filter_reports?types=${selectedTypes}&healths=${selectedHealths}`;
+
+    // 4. Fetch the filtered data and update the map
+    fetch(filterUrl)
         .then(response => response.json())
         .then(res => {
             if (res.status === 'success') {
-                // Clear existing old markers from the map layout to prevent overlays
-                markers.forEach(marker => map.removeLayer(marker));
-                markers = []; // Reset the tracking markers array template
-
-                // Re-render and populate active map markers with the newly filtered datasets
-                updateMapMarkers(res.data); 
+                updateMapMarkers(res.data); // Call your existing function to draw markers
+                // Optional: close the filter panel after applying
+                const filterModal = document.getElementById('filterModal');
+                if (filterModal) filterModal.style.display = 'none';
+            } else {
+                console.error("Error from backend:", res.message);
             }
         })
-        .catch(err => console.error("Filter request error trace:", err));
+        .catch(err => console.error("Fetch error:", err));
 }
 
 
 // 刷新地图的专用函数
 function updateMapMarkers(reports) {
-    // 先移除当前地图上的所有 marker (假设你有一个 markers 数组)
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
+    // Remove the current report markers before drawing the filtered result.
+    reportMarkers.forEach(m => map.removeLayer(m));
+    reportMarkers = [];
     
-    report.forEach(r => {
+    reports.forEach(r => {
+    if (!r.lat || !r.lng) return;
     // 1. Prepare the basic text information that must be displayed
     let popupContent = `
         <div style="font-family: sans-serif; min-width: 180px;">
@@ -436,7 +471,7 @@ function updateMapMarkers(reports) {
     
     // 5. Add the marker to the map and push it to your tracking array
     marker.addTo(map);
-    markers.push(marker); 
+    reportMarkers.push(marker); 
 });
 }
     </script>

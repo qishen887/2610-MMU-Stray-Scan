@@ -180,6 +180,19 @@ button {
     cursor: pointer;
     border: 2px solid #444;
     transition: border-color 0.3s ease;
+    object-fit: cover;
+    box-sizing: border-box;
+}
+
+.user-avatar-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f09c16;
+    color: #111;
+    font-weight: 700;
+    font-size: 18px;
+    user-select: none;
 }
 
 .user-avatar:hover {
@@ -212,6 +225,15 @@ button {
     color: #ccc;
     font-size: 14px;
     font-weight: bold;
+}
+
+.user-email {
+    display: block;
+    margin-top: 4px;
+    color: #888;
+    font-size: 11px;
+    font-weight: normal;
+    overflow-wrap: anywhere;
 }
 
 /* Divider line */
