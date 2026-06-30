@@ -84,6 +84,7 @@
                                     * Use <b>@student.mmu.edu.my</b> for User access.
                                 </div>
                             </div>
+                        
                             <div class="mb-3">
                                 <label class="form-label">Password</label>
                                 <div class="input-group">
@@ -93,6 +94,9 @@
                                     </button>
                                 </div>
                             </div>
+                             <div class="text-end mb-3">
+                                 <a href="{{ url_for('forgot_password_page') }}" class="text-decoration-none" style="font-size: 0.85rem; color: #667eea;">Forgot Password?</a>
+                           </div>
                             <div class="d-grid gap-2 mt-4">
                                 <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">Login</button>
                             </div>
