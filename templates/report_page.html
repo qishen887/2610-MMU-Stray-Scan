@@ -496,17 +496,16 @@
 
             try {
                 const res  = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-                    { headers: { 'Accept-Language': 'en' } }
+                    `/reverse-geocode?lat=${lat}&lon=${lng}`
                 );
                 const data = await res.json();
                 // Use full address if available, else fall back to coordinates
-                const addr = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                const addr = data.address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 document.getElementById('addressHidden').value = addr;
                 document.getElementById('pinLabel').textContent = '📍 ' + addr;
-                bindPopup(addr).openPopup();
+                marker.bindPopup(addr).openPopup();
             } catch (err) {
-                // Nominatim failed — store raw coordinates as the address
+                // Backend reverse-geocode failed — store raw coordinates as the address
                 const addr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 document.getElementById('addressHidden').value = addr;
                 document.getElementById('pinLabel').textContent = '📍 ' + addr;
