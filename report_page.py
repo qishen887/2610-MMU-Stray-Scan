@@ -1,12 +1,14 @@
-from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for
+from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect, text
 from datetime import datetime, timedelta, timezone
 import os
 import urllib.request
 import urllib.parse
 import json
-from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, url_for, session, flash
+from uuid import uuid4
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 
 def reverse_geocode(lat, lon):
@@ -42,7 +44,7 @@ def utc_now():
 
 # Model
 class AnimalReport(db.Model):
-    __tablename__ = 'animal_reports'
+    __tablename__ = 'animals_reports'
 
     id            = db.Column(db.Integer, primary_key=True)
     animal_type   = db.Column(db.String(50),  nullable=False)   # value from dropdown
@@ -86,9 +88,30 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
+class VetClinic(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    address = db.Column(db.String(300), nullable=False)
+    phone = db.Column(db.String(30), nullable=False)
+    operating_hours = db.Column(db.Text, nullable=False)  # Changed to db.Text for multiline
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    google_map_link = db.Column(db.String(500), nullable=True) # New Google Map Link field
+    image = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+def ensure_vet_clinic_image_column():
+    inspector = inspect(db.engine)
+    columns = {column['name'] for column in inspector.get_columns('vet_clinic')}
+    if 'image' not in columns:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE vet_clinic ADD COLUMN image VARCHAR(255)"))
+
 # Create all tables on first run
 with app.app_context():
     db.create_all()
+    ensure_vet_clinic_image_column()
 
 
 # Routes
@@ -111,16 +134,16 @@ def homepage():
 def report():
     return render_template('report_page.html')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_page():
-    if 'user' in session:
-        if session['role'] == 'admin':
-            return redirect(url_for('admin'))
-        return redirect(url_for('homepage'))
-    return render_template('login.html')
+    if request.method == 'GET':
+        if 'user' in session:
+            if session['role'] == 'admin':
+                return redirect(url_for('admin'))
+            return redirect(url_for('homepage'))
+        return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
-def login():
+    # POST — handle login form submission
     email    = request.form.get('email')
     password = request.form.get('password')
 
@@ -137,26 +160,30 @@ def login():
         return redirect(url_for('login_page'))
 
 @app.route('/register')
-def register_page():
-    return render_template('signup.html')
-
-@app.route('/signup', methods=['POST'])
+@app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    # 1. Add this check to prevent logged-in users from accessing signup
+    if 'user' in session:
+        return redirect(url_for('homepage'))
+    
+    if request.method == 'GET':
+        return render_template('signup.html')
+
     email            = request.form.get('email')
     password         = request.form.get('password')
     confirm_password = request.form.get('confirm_password')
 
     if not email or not password:
         flash("Email and password are required.")
-        return redirect(url_for('register_page'))
+        return redirect(url_for('signup'))
 
     if password != confirm_password:
         flash("Passwords do not match!")
-        return redirect(url_for('register_page'))
+        return redirect(url_for('signup'))
 
     if len(password) != 8:
         flash("Password must be exactly 8 characters!")
-        return redirect(url_for('register_page'))
+        return redirect(url_for('signup'))
 
     if email.endswith('@mmu.edu.my'):
         user_role = 'admin'
@@ -164,7 +191,7 @@ def signup():
         user_role = 'customer'
     else:
         flash("Please use an official MMU email (@mmu.edu.my or @student.mmu.edu.my)")
-        return redirect(url_for('register_page'))
+        return redirect(url_for('signup'))
 
     if User.query.filter_by(email=email).first():
         flash("Email already registered. Please login.")
@@ -241,6 +268,11 @@ def submit():  # Receive the form, save the image, write a row to the DB.
         print(f"[ERROR] {e}")
         return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/settings')
+def settings_page():
+    return render_template('settings.html')
+from flask import send_from_directory, url_for
+
 # Optional read endpoints for admin dashboard to list reports, view details, delete, or update status.
 
 @app.route('/reports', methods=['GET'])
@@ -265,6 +297,12 @@ def delete_report(report_id):   #Delete a report by ID.
 
 @app.route('/admin')
 def admin():
+    if 'user' not in session:
+        flash("Please log in to access the admin panel.")
+        return redirect(url_for('login_page'))
+    if session.get('role') != 'admin':
+        flash("Access denied. Admin privileges required.")
+        return redirect(url_for('homepage'))
     return render_template('admin_page.html')
 
 
@@ -321,8 +359,8 @@ def export_excel():
     }
  
     headers = ["ID", "Animal", "Custom Animal", "Location", "Quantity",
-               "Health Status", "Status", "Details", "Image", "Submitted At"]
-    col_widths = [6, 16, 16, 24, 10, 14, 12, 36, 28, 22]
+               "Health Status", "Status", "Details", "Image", "Submitted At", "Submitted By"]
+    col_widths = [6, 16, 16, 24, 10, 14, 12, 36, 28, 22, 24]
  
     # Write headers
     for col, (h, w) in enumerate(zip(headers, col_widths), 1):
@@ -349,6 +387,7 @@ def export_excel():
             report.details or "—",
             report.image or "—",
             report.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            report.submitted_by_email or "Guest",
         ]
         for c_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=r_idx, column=c_idx, value=value)
@@ -364,6 +403,13 @@ def export_excel():
                 cell.font = status_fonts.get(s, Font(name="Arial", size=10))
                 cell.alignment = Alignment(horizontal="center", vertical="center")
  
+            # Style the "Submitted By" cell
+            if c_idx == 11:
+                if value == "Guest":
+                    cell.font = Font(italic=True, color="888888", name="Arial", size=10)
+                else:
+                    cell.font = Font(color="2E4057", name="Arial", size=10)
+
         ws.row_dimensions[r_idx].height = 18
  
     # Summary row at the bottom
@@ -419,7 +465,7 @@ def export_pdf():
     ]
  
     # Table data
-    col_headers = ["ID", "Animal", "Location", "Qty", "Health", "Status", "Details", "Submitted"]
+    col_headers = ["ID", "Animal", "Location", "Qty", "Health", "Status", "Details", "Submitted", "Submitted By"]
     data = [col_headers]
     for rpt in reports:
         data.append([
@@ -431,9 +477,10 @@ def export_pdf():
             rpt.status.capitalize(),
             Paragraph(rpt.details or "—", wrap_style),
             rpt.created_at.strftime("%Y-%m-%d\n%H:%M"),
+            Paragraph(rpt.submitted_by_email or "<i>Guest</i>", wrap_style),
         ])
  
-    col_widths_pdf = [12*mm, 25*mm, 55*mm, 12*mm, 18*mm, 18*mm, 68*mm, 30*mm]
+    col_widths_pdf = [10*mm, 22*mm, 48*mm, 10*mm, 16*mm, 16*mm, 60*mm, 25*mm, 32*mm]
  
     STATUS_COLORS = {
         "pending":  colors.HexColor("#FFF3CD"),
@@ -476,7 +523,79 @@ def export_pdf():
     buf.seek(0)
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name="animal_reports.pdf")
- 
+
+
+@app.route('/vet-clinics')
+def vet_clinics():
+    clinics = VetClinic.query.order_by(VetClinic.name).all()
+    return render_template('vets_clinics.html', clinics=clinics)
+
+@app.route('/admin/vet-clinics/add', methods=['GET', 'POST'])
+def add_vet_clinic():
+    if 'user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login_page'))
+    if request.method == 'POST':
+        image_file = request.files.get('image')
+        image_filename = None
+        if image_file and image_file.filename:
+            safe_name = secure_filename(image_file.filename)
+            image_filename = f"{uuid4().hex}_{safe_name}"
+            image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
+
+        clinic = VetClinic(
+            name=request.form['name'],
+            address=request.form['address'],
+            phone=request.form['phone'],
+            operating_hours=request.form['operating_hours'],
+            latitude=float(request.form['latitude']) if request.form.get('latitude') else None,
+            longitude=float(request.form.get('longitude')) if request.form.get('longitude') else None,
+            google_map_link=request.form.get('google_map_link'),
+            image=image_filename
+        )
+        db.session.add(clinic)
+        db.session.commit()
+        flash('Vet clinic added successfully!', 'success')
+        return redirect(url_for('vet_clinics'))
+    return render_template('vets_clinics.html', form_mode='add', edit_clinic=None, clinics=VetClinic.query.all())
+
+
+
+@app.route('/admin/vet-clinics/edit/<int:clinic_id>', methods=['GET', 'POST'])
+def edit_vet_clinic(clinic_id):
+    if 'user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login_page'))
+    clinic = VetClinic.query.get_or_404(clinic_id)
+    if request.method == 'POST':
+        image_file = request.files.get('image')
+        if image_file and image_file.filename:
+            safe_name = secure_filename(image_file.filename)
+            image_filename = f"{uuid4().hex}_{safe_name}"
+            image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
+            clinic.image = image_filename
+
+        clinic.name = request.form['name']
+        clinic.address = request.form['address']
+        clinic.phone = request.form['phone']
+        clinic.operating_hours = request.form['operating_hours']
+        clinic.latitude = float(request.form['latitude']) if request.form.get('latitude') else None
+        clinic.longitude = float(request.form.get('longitude')) if request.form.get('longitude') else None
+        clinic.google_map_link = request.form.get('google_map_link')
+        db.session.commit()
+        flash('Vet clinic updated!', 'success')
+        return redirect(url_for('vet_clinics'))
+    return render_template('vets_clinics.html', form_mode='edit', edit_clinic=clinic, clinics=VetClinic.query.all())
+
+
+@app.route('/admin/vet-clinics/delete/<int:clinic_id>', methods=['POST'])
+def delete_vet_clinic(clinic_id):
+    if 'user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login_page'))
+    clinic = VetClinic.query.get_or_404(clinic_id)
+    db.session.delete(clinic)
+    db.session.commit()
+    flash('Vet clinic deleted.', 'warning')
+    return redirect(url_for('vet_clinics'))
+
 def seed_default_users():
     defaults = [
         {"email": "admin@mmu.edu.my",           "password": "admin123", "role": "admin"},

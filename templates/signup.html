@@ -75,7 +75,7 @@
                           {% endif %}
                         {% endwith %}
 
-                        <form action="/signup" method="POST" id="signupForm">
+                        <form action="{{ url_for('signup') }}" method="POST" id="signupForm">
                             <div class="mb-3">
                                 <label class="form-label">MMU Email address</label>
                                 <input type="email" name="email" class="form-control" placeholder="name@student.mmu.edu.my/@mmu.edu.my" required pattern=".+@student\.mmu\.edu\.my|.+@mmu\.edu\.my" title="Please use your official MMU email (@student.mmu.edu.my or @mmu.edu.my)">
