@@ -23,6 +23,7 @@ class User(db.Model):
     __tablename__ = 'users'  
     
     id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), nullable=True)  # Add this line
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(256), nullable=False)
     
@@ -101,7 +102,7 @@ def show_login():
     if user and check_password_hash(user.password, password):
         session['user'] = user.email
         session['role'] = user.role or 'customer'
-        session['display_name'] = user.email.split('@')[0]
+        session['display_name'] = user.username or user.email.split('@')[0]
         return redirect(url_for('homepage'))
 
     flash("Invalid email or password. Please try again.")
@@ -123,9 +124,57 @@ def session_info():
         })
     return jsonify({"logged_in": False})
 
-@app.route('/signup')
+@app.route('/register')
+@app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    return render_template('signup.html')
+    # 1. Add this check to prevent logged-in users from accessing signup
+    if 'user' in session:
+        return redirect(url_for('homepage'))
+    
+    if request.method == 'GET':
+        return render_template('signup.html')
+
+    username         = request.form.get('username', '').strip() 
+    email            = request.form.get('email')
+    password         = request.form.get('password')
+    confirm_password = request.form.get('confirm_password')
+
+    if not email or not password:
+        flash("Email and password are required.")
+        return redirect(url_for('signup'))
+
+    if password != confirm_password:
+        flash("Passwords do not match!")
+        return redirect(url_for('signup'))
+
+    if len(password) != 8:
+        flash("Password must be exactly 8 characters!")
+        return redirect(url_for('signup'))
+
+    if email.endswith('@mmu.edu.my'):
+        user_role = 'admin'
+    elif email.endswith('@student.mmu.edu.my'):
+        user_role = 'customer'
+    else:
+        flash("Please use an official MMU email (@mmu.edu.my or @student.mmu.edu.my)")
+        return redirect(url_for('signup'))
+
+    if User.query.filter_by(email=email).first():
+        flash("Email already registered. Please login.")
+        return redirect(url_for('show_login'))
+
+    username = request.form.get('username', '').strip() or email.split('@')[0]
+    new_user = User(
+        username = username,
+        email    = email,
+        password = generate_password_hash(password),
+        role     = user_role
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    flash("Registration successful! Please login.")
+    return redirect(url_for('show_login'))
 
 @app.route('/submit', methods=['POST'])
 def submit():  # Receive the form, save the image, write a row to the DB.
