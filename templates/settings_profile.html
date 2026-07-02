@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body.settings-page {
+            background: #ffffff;
+            color: #222;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .settings-sidebar {
+            width: 260px;
+            min-width: 260px;
+            min-height: 100vh;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            box-sizing: border-box;
+            padding: 25px 15px;
+        }
+
+        .back-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            background: #1f2933;
+            color: #fff;
+            border: 0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 18px;
+        }
+
+        .sidebar-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            border-top: 1px solid #e9ecef;
+            padding-top: 14px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 6px;
+            color: #495057;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            border: 0;
+            width: 100%;
+            background: transparent;
+            text-align: left;
+        }
+
+        .sidebar-item:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #111;
+        }
+
+        .sidebar-item.selected {
+            background: #0d6efd;
+            color: #fff;
+        }
+
+        .settings-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .settings-panel {
+            display: none;
+            max-width: 760px;
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .settings-content h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+            color: #1f2933;
+        }
+
+        .settings-subtitle {
+            margin: 0 0 28px;
+            color: #6c757d;
+        }
+
+        .setting-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 22px;
+            margin-bottom: 18px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        }
+
+        .profile-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 14px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+
+        .profile-row:last-child {
+            border-bottom: 0;
+        }
+
+        .profile-label {
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        .profile-value {
+            color: #212529;
+            font-weight: 600;
+            overflow-wrap: anywhere;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .form-field label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #343a40;
+        }
+
+        .form-field input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 11px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        .primary-btn,
+        .secondary-btn {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 42px;
+            padding: 0 16px;
+            border-radius: 8px;
+            border: 0;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .primary-btn {
+            background: #0d6efd;
+            color: #fff;
+        }
+
+        .secondary-btn {
+            background: #e9ecef;
+            color: #212529;
+            margin-left: 8px;
+        }
+
+        .flash-list {
+            max-width: 760px;
+            margin-bottom: 18px;
+        }
+
+        .flash-message {
+            padding: 12px 14px;
+            border-radius: 8px;
+            background: #fff3cd;
+            border: 1px solid #ffe69c;
+            color: #664d03;
+            margin-bottom: 8px;
+        }
+
+        .guest-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        @media (max-width: 760px) {
+            body.settings-page {
+                display: block;
+            }
+
+            .settings-sidebar {
+                width: 100%;
+                min-width: 0;
+                min-height: auto;
+            }
+
+            .settings-content {
+                padding: 24px;
+            }
+
+            .profile-row {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+        }
+    </style>
+</head>
+<body class="settings-page">
+    {% set selected_tab = request.args.get('tab', 'profile') %}
+    {% set logged_in = session.get('user') %}
+    {% set display_name = session.get('display_name') or (session.get('user').split('@')[0] if session.get('user') else 'Guest') %}
+    {% set role = session.get('role', 'guest') %}
+
+    <aside class="settings-sidebar">
+        <button onclick="window.location.href=`{{ url_for('homepage') }}`" class="back-btn">
+            <span style="margin-right: 8px;">&#11178;</span> Back to Homepage
+        </button>
+
+        <ul class="sidebar-list">
+            <li>
+                <button class="sidebar-item {% if selected_tab != 'password' %}selected{% endif %}" type="button" data-tab="profile">
+                    <span>&#128100;</span> User Profile
+                </button>
+            </li>
+            <li>
+                <button class="sidebar-item {% if selected_tab == 'password' %}selected{% endif %}" type="button" data-tab="password">
+                    <span>&#128273;</span> Password Manager
+                </button>
+            </li>
+        </ul>
+    </aside>
+
+    <main class="settings-content">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+            <div class="flash-list">
+                {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+
+        <section id="profilePanel" class="settings-panel {% if selected_tab != 'password' %}active{% endif %}">
+            <h1>User Profile</h1>
+            <p class="settings-subtitle">View your account details and update your display name.</p>
+
+            <div class="setting-card">
+                <div class="profile-row">
+                    <div class="profile-label">Name</div>
+                    <div class="profile-value">{{ display_name }}</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Email</div>
+                    <div class="profile-value">{{ session.get('user') if logged_in else 'Guest user' }}</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Role</div>
+                    <div class="profile-value">{{ role|capitalize }}</div>
+                </div>
+            </div>
+
+            {% if logged_in %}
+            <div class="setting-card">
+                <h3>Update Profile</h3>
+                <form class="form-grid" action="{{ url_for('update_profile') }}" method="POST">
+                    <div class="form-field">
+                        <label for="username">Display name</label>
+                        <input id="username" name="username" type="text" value="{{ display_name }}" maxlength="150" required>
+                    </div>
+                    <div>
+                        <button class="primary-btn" type="submit">Save Profile</button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <div class="setting-card">
+                <h3>Guest Profile</h3>
+                <p class="settings-subtitle" style="margin-bottom: 0;">You are browsing as a guest. Log in to save a profile name, manage your password, and link reports to your account.</p>
+                <div class="guest-actions">
+                    <a class="primary-btn" href="{{ url_for('show_login') }}">Log In</a>
+                    <a class="secondary-btn" href="{{ url_for('signup') }}">Create Account</a>
+                </div>
+            </div>
+            {% endif %}
+        </section>
+
+        <section id="passwordPanel" class="settings-panel {% if selected_tab == 'password' %}active{% endif %}">
+            <h1>Password Manager</h1>
+            <p class="settings-subtitle">Change your account password after confirming your current password.</p>
+
+            {% if logged_in %}
+            <div class="setting-card">
+                <form class="form-grid" action="{{ url_for('change_password') }}" method="POST">
+                    <div class="form-field">
+                        <label for="current_password">Current password</label>
+                        <input id="current_password" name="current_password" type="password" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="new_password">New password</label>
+                        <input id="new_password" name="new_password" type="password" required pattern="\d{8}" title="Password must be exactly 8 digits.">
+                    </div>
+                    <div class="form-field">
+                        <label for="confirm_password">Confirm new password</label>
+                        <input id="confirm_password" name="confirm_password" type="password" required pattern="\d{8}" title="Password must be exactly 8 digits.">
+                    </div>
+                    <div>
+                        <button class="primary-btn" type="submit">Update Password</button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <div class="setting-card">
+                <h3>Password Manager is unavailable for guests</h3>
+                <p class="settings-subtitle" style="margin-bottom: 0;">Log in first to manage your password.</p>
+                <div class="guest-actions">
+                    <a class="primary-btn" href="{{ url_for('show_login') }}">Log In</a>
+                </div>
+            </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <script>
+        const tabButtons = document.querySelectorAll('.sidebar-item[data-tab]');
+        const panels = {
+            profile: document.getElementById('profilePanel'),
+            password: document.getElementById('passwordPanel')
+        };
+
+        tabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const tab = button.dataset.tab;
+                tabButtons.forEach((item) => item.classList.toggle('selected', item === button));
+                Object.entries(panels).forEach(([key, panel]) => {
+                    panel.classList.toggle('active', key === tab);
+                });
+                const url = new URL(window.location);
+                url.searchParams.set('tab', tab);
+                window.history.replaceState({}, '', url);
+            });
+        });
+    </script>
+</body>
+</html>

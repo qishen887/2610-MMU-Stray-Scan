@@ -77,7 +77,7 @@
                         {% endif %}
                     </div>
                     <hr class="menu-divider">
-                    <a href="#" class="menu-item">Profile</a>
+                    <a href="{{ url_for('settings_page', tab='profile') }}" class="menu-item">Profile</a>
                     <a href="{{ url_for('settings_page') }}" style="display: block; padding: 10px; color: white; text-decoration: none;">
     ⚙️ Setting
 </a>
