@@ -305,22 +305,18 @@
 
         <section id="passwordPanel" class="settings-panel {% if selected_tab == 'password' %}active{% endif %}">
             <h1>Account Security</h1>
-            <p class="settings-subtitle">Keep your profile secure by updating your account password.</p>
+            <p class="settings-subtitle">Set a new 8-digit password for your account.</p>
 
             {% if logged_in %}
             <div class="setting-card">
                 <form class="form-grid" action="{{ url_for('change_password') }}" method="POST">
                     <div class="form-field">
-                        <label for="current_password">Current password</label>
-                        <input id="current_password" name="current_password" type="password" required>
-                    </div>
-                    <div class="form-field">
                         <label for="new_password">New password</label>
-                        <input id="new_password" name="new_password" type="password" required pattern="\d{8}" title="Password must be exactly 8 digits.">
+                        <input id="new_password" name="new_password" type="password" autocomplete="new-password" required pattern="\d{8}" title="Password must be exactly 8 digits.">
                     </div>
                     <div class="form-field">
                         <label for="confirm_password">Confirm new password</label>
-                        <input id="confirm_password" name="confirm_password" type="password" required pattern="\d{8}" title="Password must be exactly 8 digits.">
+                        <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required pattern="\d{8}" title="Password must be exactly 8 digits.">
                     </div>
                     <div>
                         <button class="primary-btn" type="submit">Update Password</button>

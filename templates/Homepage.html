@@ -150,18 +150,93 @@
         let userPos = null;
         var marker;
         let reportMarkers = [];
+        const addressCache = new Map();
+        let reverseGeocodeQueue = Promise.resolve();
+        let nextReverseGeocodeTime = 0;
 
         // --- Map Initialization ---
         var map = L.map('map').setView(cyberCoord, 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+function escapeLocationText(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    })[character]);
+}
+
+function buildLocationPopup(title, latlng, address) {
+    return `
+        <div style="min-width: 220px; line-height: 1.45;">
+            <strong>${escapeLocationText(title)}</strong><br>
+            <span><b>Address:</b> ${escapeLocationText(address)}</span><br>
+            <span><b>Latitude:</b> ${latlng.lat.toFixed(6)}</span><br>
+            <span><b>Longitude:</b> ${latlng.lng.toFixed(6)}</span>
+        </div>
+    `;
+}
+
+function reverseGeocode(latlng) {
+    const cacheKey = `${latlng.lat.toFixed(5)},${latlng.lng.toFixed(5)}`;
+    if (addressCache.has(cacheKey)) return addressCache.get(cacheKey);
+
+    const request = async () => {
+        const delay = Math.max(0, nextReverseGeocodeTime - Date.now());
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        nextReverseGeocodeTime = Date.now() + 1100;
+
+        const params = new URLSearchParams({
+            format: 'jsonv2',
+            lat: latlng.lat,
+            lon: latlng.lng,
+            zoom: '18',
+            addressdetails: '1'
+        });
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`);
+        if (!response.ok) throw new Error(`Address lookup failed with status ${response.status}`);
+
+        const result = await response.json();
+        return result.display_name || 'Address not found';
+    };
+
+    const lookup = reverseGeocodeQueue.then(request, request);
+    reverseGeocodeQueue = lookup.catch(() => {});
+    addressCache.set(cacheKey, lookup);
+    lookup.catch(() => addressCache.delete(cacheKey));
+    return lookup;
+}
+
+function showLocationMarker(latlng, title) {
+    if (marker) map.removeLayer(marker);
+
+    const locationMarker = L.marker(latlng).addTo(map);
+    marker = locationMarker;
+    locationMarker.bindPopup(buildLocationPopup(title, latlng, 'Finding address...')).openPopup();
+
+    reverseGeocode(latlng)
+        .then(address => {
+            if (map.hasLayer(locationMarker)) {
+                locationMarker.setPopupContent(buildLocationPopup(title, latlng, address));
+            }
+        })
+        .catch(error => {
+            console.error('Failed to find address:', error);
+            if (map.hasLayer(locationMarker)) {
+                locationMarker.setPopupContent(buildLocationPopup(title, latlng, 'Address unavailable'));
+            }
+        });
+}
 
 // Auto-detect user position
 map.locate({setView: true, maxZoom: 16});
 map.on('locationfound', function(e) {
     userPos = e.latlng;
-    if (marker) map.removeLayer(marker);
-    // 把 "Origin Detected" 改成了 "Your current location"
-    marker = L.marker(e.latlng).addTo(map).bindPopup("Your current location").openPopup();
+    showLocationMarker(e.latlng, 'Your current location');
 });
 map.on('locationerror', function(e) {
     console.log("Location error: ", e.message);
@@ -181,11 +256,8 @@ function recenterMap(event) {
             
             // Check if user's actual location is successfully retrieved
             if (userPos) {
-                // If a marker already exists on the map, remove it first to avoid duplicates
-                if (marker) map.removeLayer(marker);
-
                 // Add the marker to the user's current location and open its popup
-                marker = L.marker(userPos).addTo(map).bindPopup("Your current location").openPopup();
+                showLocationMarker(userPos, 'Your current location');
 
                 // If yes, fly smoothly to user's location with zoom level 16
                 map.flyTo(userPos, 16);
@@ -197,8 +269,7 @@ function recenterMap(event) {
 
         // Add marker on manual click
         map.on('click', function(e) {
-            if (marker) map.removeLayer(marker);
-            marker = L.marker(e.latlng).addTo(map).bindPopup("Pinned Location").openPopup();
+            showLocationMarker(e.latlng, 'Pinned location');
         });
 
         // Fix rendering on initial load
@@ -347,44 +418,7 @@ async function loadReportsOnMap() {
         const result = await response.json();
         
         if (result.status === 'success') {
-            const reports = result.data;
-            
-            // Loop through each report record
-            reports.forEach(report => {
-                // Ensure geographical coordinates are valid before creating markers
-                if (report.lat && report.lng) {
-                    // Initialize and place the marker on the map
-                    const marker = L.marker([report.lat, report.lng]).addTo(map);
-                    
-                    // 1. Build the base text layout with dark console styling (Aligned to 'report' variable)
-                    let popupContent = `
-                        <div style="font-family: monospace; color: #fff; background: #1e1e1e; padding: 8px; border-radius: 4px;">
-                            <b style="color: #f09c16;">[Report ID: ${report.id}]</b><br>
-                            <b>Location:</b> ${report.address}<br>
-                            <b>Type:</b> ${report.animal_type}<br>
-                            <b>Quantity:</b> ${report.quantity}<br>
-                            <b>Health:</b> ${report.health_status}
-                    `;
-
-                    // 2. Dynamic check: Append the image tag safely only if image_url is returned from the backend
-                    if (report.image_url) {
-                        popupContent += `
-                            <br><br>
-                            <div style="text-align: center;">
-                                <img src="${report.image_url}" alt="Animal Image" style="width: 100%; max-width: 180px; height: auto; border-radius: 4px; border: 1px solid #333; margin-top: 5px;">
-                            </div>
-                        `;
-                    }
-
-                    // 3. Close the container HTML element safely
-                    popupContent += `</div>`;
-
-                    // 4. Pass the combined string variable straight into your bindPopup function
-                    marker.bindPopup(popupContent);
-                    
-                    reportMarkers.push(marker);
-                } // 👈 FIXED: Added missing closing brace for 'if (report.lat && report.lng)'
-            });
+            updateMapMarkers(result.data);
         }
     } catch (error) {
         console.error("Failed to fetch locations from database:", error);
@@ -441,35 +475,56 @@ function updateMapMarkers(reports) {
     reportMarkers.forEach(m => map.removeLayer(m));
     reportMarkers = [];
     
-    reports.forEach(r => {
-    if (!r.lat || !r.lng) return;
-    // 1. Prepare the basic text information that must be displayed
-    let popupContent = `
-        <div style="font-family: sans-serif; min-width: 180px;">
-            <h4 style="margin: 0 0 8px 0; color: #f09c16;">${r.animal_type} (x${r.quantity})</h4>
-            <p style="margin: 0 0 4px 0;"><b>Health:</b> ${r.health_status}</p>
-            <p style="margin: 0 0 4px 0;"><b>Address:</b> ${r.address}</p>
-    `;
-    
-    // 2. Core condition: If the backend sends an image_url, append the <img> tag
-    if (r.image_url) {
-        popupContent += `
-            <div style="margin-top: 10px; text-align: center;">
-                <img src="${r.image_url}" alt="Animal Image" style="max-width: 100%; max-height: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-            </div>
-        `;
-    }
+    const reportsByLocation = new Map();
 
-    // 3. Close the outer div container
-    popupContent += `</div>`;
+    reports.forEach(report => {
+        const lat = Number(report.lat);
+        const lng = Number(report.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-    // 4. Create the marker and bind the assembled HTML popup
-    let marker = L.marker([r.lat, r.lng]).bindPopup(popupContent);
-    
-    // 5. Add the marker to the map and push it to your tracking array
-    marker.addTo(map);
-    reportMarkers.push(marker); 
-});
+        const locationKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        if (!reportsByLocation.has(locationKey)) {
+            reportsByLocation.set(locationKey, { lat, lng, reports: [] });
+        }
+        reportsByLocation.get(locationKey).reports.push(report);
+    });
+
+    reportsByLocation.forEach(location => {
+        const reportCards = location.reports.map((report, index) => {
+            const image = report.image_url
+                ? `<div style="margin-top: 8px; text-align: center;">
+                       <img src="${escapeLocationText(report.image_url)}" alt="Animal Image" style="max-width: 100%; max-height: 150px; border-radius: 8px;">
+                   </div>`
+                : '';
+            const divider = index < location.reports.length - 1
+                ? '<hr style="margin: 12px 0; border: 0; border-top: 1px solid #ddd;">'
+                : '';
+
+            return `
+                <section>
+                    <h4 style="margin: 0 0 8px; color: #f09c16;">
+                        ${escapeLocationText(report.animal_type)} (x${escapeLocationText(report.quantity)})
+                    </h4>
+                    <p style="margin: 0 0 4px;"><b>Report ID:</b> ${escapeLocationText(report.id)}</p>
+                    <p style="margin: 0 0 4px;"><b>Health:</b> ${escapeLocationText(report.health_status)}</p>
+                    <p style="margin: 0;"><b>Address:</b> ${escapeLocationText(report.address)}</p>
+                    ${image}
+                </section>${divider}`;
+        }).join('');
+
+        const count = location.reports.length;
+        const popupContent = `
+            <div style="font-family: sans-serif; min-width: 220px; max-height: 360px; overflow-y: auto;">
+                ${count > 1 ? `<div style="margin-bottom: 10px; font-weight: bold;">${count} reports at this location</div>` : ''}
+                ${reportCards}
+            </div>`;
+
+        const reportMarker = L.marker([location.lat, location.lng])
+            .bindPopup(popupContent, { maxWidth: 320 });
+        if (count > 1) reportMarker.bindTooltip(`${count} reports`);
+        reportMarker.addTo(map);
+        reportMarkers.push(reportMarker);
+    });
 }
     </script>
 <div id="settingsModal" class="settings-bottom-panel">
