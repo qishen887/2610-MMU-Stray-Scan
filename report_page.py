@@ -198,6 +198,7 @@ def home():
 
 
 @app.route('/home')
+@app.route('/user-dashboard', endpoint='user_dashboard')
 def homepage():
     return render_template('homepage.html')
 
@@ -256,8 +257,8 @@ def signup():
         flash("Passwords do not match!")
         return redirect(url_for('signup'))
 
-    if len(password) != 8:
-        flash("Password must be exactly 8 characters!")
+    if not (len(password) == 8 and password.isdigit()):
+        flash("Password must be exactly 8 digits!")
         return redirect(url_for('signup'))
 
     if email.endswith('@mmu.edu.my'):
@@ -509,6 +510,7 @@ def delete_report(report_id):   #Delete a report by ID.
 
 
 @app.route('/admin')
+@app.route('/admin-dashboard', endpoint='admin_dashboard')
 def admin():
     if 'user' not in session:
         flash("Please log in to access the admin panel.")
