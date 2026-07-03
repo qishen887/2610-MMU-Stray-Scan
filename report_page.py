@@ -37,6 +37,36 @@ def reverse_geocode(latitude, longitude, language=None):
 
     return result.get('display_name')
 
+def forward_geocode(query, limit=5):
+    # Search Nominatim for addresses matching a free-text query. Returns a list of {address, lat, lon} dicts (possibly empty).
+    if not query:
+        return []
+    try:
+        params = urllib.parse.urlencode({
+            "q": query,
+            "format": "json",
+            "addressdetails": 0,
+            "limit": limit,
+            # Bias results towards Malaysia since the app is used in Cyberjaya
+            "countrycodes": "my",
+        })
+        url = f"https://nominatim.openstreetmap.org/search?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "AnimalReportApp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        print(f"[GEOCODE SEARCH] query={query} -> {len(data)} result(s)")
+        return [
+            {
+                "address": item.get("display_name"),
+                "lat": item.get("lat"),
+                "lon": item.get("lon"),
+            }
+            for item in data
+        ]
+    except Exception as e:
+        print(f"[GEOCODE SEARCH ERROR] query={query} -> {e}")
+        return []
+
 app = Flask(__name__)
 app.secret_key = 'mmu'
 
@@ -272,6 +302,14 @@ def reverse_geocode_endpoint():
         return jsonify({"status": "error", "message": "Address lookup is temporarily unavailable."}), 502
 
     return jsonify({"status": "success", "address": address})
+
+@app.route('/search-address', methods=['GET'])
+def search_address_endpoint():
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 3:
+        return jsonify({"status": "success", "results": []})
+    results = forward_geocode(query)
+    return jsonify({"status": "success", "results": results})
 
 @app.route('/submit', methods=['POST'])
 def submit():  
