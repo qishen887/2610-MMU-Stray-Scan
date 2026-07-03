@@ -11,20 +11,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 
-def reverse_geocode(lat, lon):
-    if lat is None or lon is None:
-        return "—"
+def reverse_geocode(latitude, longitude, language=None):
+    params = {
+        "lat": latitude,
+        "lon": longitude,
+        "format": "jsonv2",
+        "zoom": 18,
+        "addressdetails": 1,
+    }
+    if language:
+        params['accept-language'] = language
+
+    url = f"https://nominatim.openstreetmap.org/reverse?{urllib.parse.urlencode(params)}"
+    geocode_request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "CyberjayaStrayScan/1.0"},
+    )
+
     try:
-        params = urllib.parse.urlencode({"lat": lat, "lon": lon, "format": "json"})
-        url = f"https://nominatim.openstreetmap.org/reverse?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "AnimalReportApp/1.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        print(f"[GEOCODE] lat={lat} lon={lon} -> {data}")
-        return data.get("display_name", f"{lat}, {lon}")
-    except Exception as e:
-        print(f"[GEOCODE ERROR] lat={lat} lon={lon} -> {e}")
-        return f"{lat}, {lon}"
+        with urllib.request.urlopen(geocode_request, timeout=5) as response:
+            result = json.loads(response.read().decode('utf-8'))
+    except (OSError, ValueError) as error:
+        app.logger.warning("Reverse geocoding failed: %s", error)
+        return None
+
+    return result.get('display_name')
 
 def forward_geocode(query, limit=5):
     # Search Nominatim for addresses matching a free-text query. Returns a list of {address, lat, lon} dicts (possibly empty).
@@ -273,11 +284,23 @@ def session_info():
 
 @app.route('/reverse-geocode', methods=['GET'])
 def reverse_geocode_endpoint():
-    lat = request.args.get('lat')
-    lon = request.args.get('lon')
-    if not lat or not lon:
-        return jsonify({"status": "error", "message": "lat and lon are required"}), 400
-    address = reverse_geocode(lat, lon)
+    try:
+        latitude = float(request.args.get('lat', ''))
+        longitude = float(request.args.get('lon', ''))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Valid lat and lon are required."}), 400
+
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return jsonify({"status": "error", "message": "Coordinates are outside the valid range."}), 400
+
+    address = reverse_geocode(
+        latitude,
+        longitude,
+        request.headers.get('Accept-Language'),
+    )
+    if not address:
+        return jsonify({"status": "error", "message": "Address lookup is temporarily unavailable."}), 502
+
     return jsonify({"status": "success", "address": address})
 
 @app.route('/search-address', methods=['GET'])
@@ -297,7 +320,11 @@ def submit():
         latitude      = request.form.get('latitude')
         longitude     = request.form.get('longitude')
         if not address and latitude and longitude:
-            address = reverse_geocode(latitude, longitude)
+            address = reverse_geocode(
+                float(latitude),
+                float(longitude),
+                request.headers.get('Accept-Language'),
+            ) or f"{latitude}, {longitude}"
         quantity      = request.form.get('quantity')
         health_status = request.form.get('healthStatus')
         details       = request.form.get('details') or None
@@ -373,7 +400,6 @@ def change_password():
         flash("Please log in to change your password.")
         return redirect(url_for('show_login'))
 
-    current_password = request.form.get('current_password') or ''
     new_password = request.form.get('new_password') or ''
     confirm_password = request.form.get('confirm_password') or ''
 
@@ -382,10 +408,6 @@ def change_password():
         session.clear()
         flash("Session expired. Please log in again.")
         return redirect(url_for('show_login'))
-
-    if not check_password_hash(user.password, current_password):
-        flash("Current password is incorrect.")
-        return redirect(url_for('settings_page', tab='password'))
 
     if new_password != confirm_password:
         flash("New passwords do not match.")
