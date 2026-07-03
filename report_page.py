@@ -86,7 +86,6 @@ class User(db.Model):
     email      = db.Column(db.String(120), unique=True, nullable=False)
     password   = db.Column(db.String(255), nullable=False)
     role       = db.Column(db.String(20),  nullable=False, default='customer')
-    created_at = db.Column(db.DateTime, default=utc_now)
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
@@ -111,29 +110,24 @@ def ensure_vet_clinic_image_column():
         with db.engine.begin() as connection:
             connection.execute(text("ALTER TABLE vet_clinic ADD COLUMN image VARCHAR(255)"))
 
+def ensure_user_created_at_column():
+    return
 
 def ensure_user_username_column():
     inspector = inspect(db.engine)
+    if 'users' not in inspector.get_table_names():
+        return
     columns = {column['name'] for column in inspector.get_columns('users')}
     if 'username' not in columns:
         with db.engine.begin() as connection:
-            connection.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(80)"))
-
-
-def ensure_usernames_for_existing_rows():
-    with app.app_context():
-        users = User.query.all()
-        for user in users:
-            if not user.username:
-                user.username = user.email.split('@')[0] if user.email else f'user_{user.id}'
-        db.session.commit()
+            connection.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(150)"))
 
 # Create all tables on first run
 with app.app_context():
     db.create_all()
     ensure_vet_clinic_image_column()
+    ensure_user_created_at_column()
     ensure_user_username_column()
-    ensure_usernames_for_existing_rows()
 
 
 # Routes
@@ -176,6 +170,7 @@ def show_login():
     if user and user.check_password(password):
         session['user'] = user.email
         session['role'] = user.role
+        session['display_name'] = user.username or user.email.split('@')[0]
         if user.role == 'admin':
             return redirect(url_for('admin'))
         return redirect(url_for('homepage'))
@@ -183,39 +178,7 @@ def show_login():
         flash("Invalid email or password. Please try again.")
         return redirect(url_for('login_page'))
 
-# Forgot password and reset password routes
-@app.route('/forgot-password')
-def forgot_password_page():
-    return render_template('forgot_password.html')
-
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
-    email = request.form.get('email').lower().strip()
-    password = request.form.get('password')
-    confirm_password = request.form.get('confirm_password')
-
-    # reset password logic to the database
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        flash("Email address not found. Please register first.")
-        return redirect(url_for('forgot_password_page'))
-
-    if password != confirm_password:
-        flash("Passwords do not match!")
-        return redirect(url_for('forgot_password_page'))
-    
-    if not (len(password) == 8 and password.isdigit()):
-        flash("Format error: Password must be exactly 8 digits!")
-        return redirect(url_for('forgot_password_page'))
-
-    # hash the new password and update the user record
-    user.password = generate_password_hash(password)
-    db.session.commit()
-
-    flash("Password reset successfully! Please login with your new password.")
-    return redirect(url_for('show_login'))
-from flask import send_from_directory, url_for
-
+ 
 @app.route('/register')
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -340,8 +303,124 @@ def submit():
 
 @app.route('/settings')
 def settings_page():
-    return render_template('settings.html')
+    return render_template('settings_profile.html')
+from flask import send_from_directory, url_for
 
+@app.route('/settings/profile', methods=['POST'])
+def update_profile():
+    if 'user' not in session:
+        flash("Please log in to update your profile.")
+        return redirect(url_for('show_login'))
+
+    username = (request.form.get('username') or '').strip()
+    if not username:
+        flash("Display name cannot be empty.")
+        return redirect(url_for('settings_page', tab='profile'))
+
+    user = User.query.filter_by(email=session['user']).first()
+    if not user:
+        session.clear()
+        flash("Session expired. Please log in again.")
+        return redirect(url_for('show_login'))
+
+    user.username = username
+    db.session.commit()
+    session['display_name'] = username
+    flash("Profile updated successfully.")
+    return redirect(url_for('settings_page', tab='profile'))
+
+@app.route('/settings/password', methods=['POST'])
+def change_password():
+    if 'user' not in session:
+        flash("Please log in to change your password.")
+        return redirect(url_for('show_login'))
+
+    current_password = request.form.get('current_password') or ''
+    new_password = request.form.get('new_password') or ''
+    confirm_password = request.form.get('confirm_password') or ''
+
+    user = User.query.filter_by(email=session['user']).first()
+    if not user:
+        session.clear()
+        flash("Session expired. Please log in again.")
+        return redirect(url_for('show_login'))
+
+    if not check_password_hash(user.password, current_password):
+        flash("Current password is incorrect.")
+        return redirect(url_for('settings_page', tab='password'))
+
+    if new_password != confirm_password:
+        flash("New passwords do not match.")
+        return redirect(url_for('settings_page', tab='password'))
+
+    if not (len(new_password) == 8 and new_password.isdigit()):
+        flash("Password must be exactly 8 digits.")
+        return redirect(url_for('settings_page', tab='password'))
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+    flash("Password updated successfully.")
+    return redirect(url_for('settings_page', tab='password'))
+
+@app.route('/api/get_all_reports', methods=['GET'])
+def get_all_reports():
+    try:
+        animal_type_query = request.args.get('animal_type', '')
+
+        if animal_type_query and animal_type_query != 'all':
+            reports = AnimalReport.query.filter_by(animal_type=animal_type_query).all()
+        else:
+            reports = AnimalReport.query.all()
+
+        report_list = []
+        for report in reports:
+            img_url = url_for('uploaded_file', filename=report.image) if getattr(report, 'image', None) else None
+            report_list.append({
+                'id': report.id,
+                'lat': report.latitude,
+                'lng': report.longitude,
+                'address': report.address if report.address else f"{report.latitude}, {report.longitude}",
+                'animal_type': report.animal_type,
+                'quantity': report.quantity,
+                'health_status': report.health_status,
+                'image_url': img_url
+            })
+        return jsonify({'status': 'success', 'data': report_list})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/filter_reports', methods=['GET'])
+def filter_reports():
+    try:
+        types_param = request.args.get('types', '')
+        healths_param = request.args.get('healths', '')
+
+        query = AnimalReport.query
+
+        if types_param:
+            query = query.filter(AnimalReport.animal_type.in_(types_param.split(',')))
+
+        if healths_param:
+            query = query.filter(AnimalReport.health_status.in_(healths_param.split(',')))
+
+        report_list = []
+        for report in query.all():
+            img_url = url_for('uploaded_file', filename=report.image) if getattr(report, 'image', None) else None
+            report_list.append({
+                'id': report.id,
+                'lat': report.latitude,
+                'lng': report.longitude,
+                'address': report.address if report.address else f"{report.latitude}, {report.longitude}",
+                'animal_type': report.animal_type,
+                'quantity': getattr(report, 'quantity', 1),
+                'health_status': report.health_status,
+                'image_url': img_url
+            })
+
+        return jsonify({'status': 'success', 'data': report_list})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # Optional read endpoints for admin dashboard to list reports, view details, delete, or update status.
 
@@ -596,11 +675,13 @@ def export_pdf():
 
 
 @app.route('/vet-clinics')
+@app.route('/vets_clinics')
 def vet_clinics():
     clinics = VetClinic.query.order_by(VetClinic.name).all()
-    return render_template('vets_clinics.html', clinics=clinics)
+    return render_template('vets_clinics.html', form_mode=None, edit_clinic=None, clinics=clinics)
 
 @app.route('/admin/vet-clinics/add', methods=['GET', 'POST'])
+@app.route('/vet-clinics/add', methods=['GET', 'POST'])
 def add_vet_clinic():
     if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
@@ -631,6 +712,7 @@ def add_vet_clinic():
 
 
 @app.route('/admin/vet-clinics/edit/<int:clinic_id>', methods=['GET', 'POST'])
+@app.route('/vet-clinics/<int:clinic_id>/edit', methods=['GET', 'POST'])
 def edit_vet_clinic(clinic_id):
     if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
@@ -657,6 +739,7 @@ def edit_vet_clinic(clinic_id):
 
 
 @app.route('/admin/vet-clinics/delete/<int:clinic_id>', methods=['POST'])
+@app.route('/vet-clinics/<int:clinic_id>/delete', methods=['POST'])
 def delete_vet_clinic(clinic_id):
     if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
@@ -671,19 +754,47 @@ def seed_default_users():
         {"email": "admin@mmu.edu.my", "password": "admin123", "role": "admin", "username": "admin"},
         {"email": "user@student.mmu.edu.my", "password": "user1234", "role": "customer", "username": "user"},
     ]
+    added_user = False
     for d in defaults:
-        existing = User.query.filter_by(email=d['email']).first()
-        if existing:
-            if not existing.username:
-                existing.username = d['username']
-            continue
-        db.session.add(User(
-            username = d['username'],
-            email    = d['email'],
-            password = generate_password_hash(d['password']),
-            role     = d['role']
-        ))
+        if not User.query.filter_by(email=d['email']).first():
+            db.session.add(User(
+                email    = d['email'],
+                password = generate_password_hash(d['password']),
+                role     = d['role']
+            ))
+            added_user = True
+    if added_user:
+        db.session.commit()
+
+@app.route('/forgot-password')
+def forgot_password_page():
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    email = request.form.get('email').lower().strip()
+    password = request.form.get('password')
+    confirm_password = request.form.get('confirm_password')
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("Email address not found. Please register first.")
+        return redirect(url_for('forgot_password_page'))
+
+    if password != confirm_password:
+        flash("Passwords do not match!")
+        return redirect(url_for('forgot_password_page'))
+
+    if not (len(password) == 8 and password.isdigit()):
+        flash("Format error: Password must be exactly 8 digits!")
+        return redirect(url_for('forgot_password_page'))
+
+    user.password = generate_password_hash(password)
     db.session.commit()
+
+    flash("Password reset successfully! Please login with your new password.")
+    return redirect(url_for('show_login'))
 
 with app.app_context():
     db.create_all()
