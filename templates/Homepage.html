@@ -418,44 +418,7 @@ async function loadReportsOnMap() {
         const result = await response.json();
         
         if (result.status === 'success') {
-            const reports = result.data;
-            
-            // Loop through each report record
-            reports.forEach(report => {
-                // Ensure geographical coordinates are valid before creating markers
-                if (report.lat && report.lng) {
-                    // Initialize and place the marker on the map
-                    const marker = L.marker([report.lat, report.lng]).addTo(map);
-                    
-                    // 1. Build the base text layout with dark console styling (Aligned to 'report' variable)
-                    let popupContent = `
-                        <div style="font-family: monospace; color: #fff; background: #1e1e1e; padding: 8px; border-radius: 4px;">
-                            <b style="color: #f09c16;">[Report ID: ${report.id}]</b><br>
-                            <b>Location:</b> ${report.address}<br>
-                            <b>Type:</b> ${report.animal_type}<br>
-                            <b>Quantity:</b> ${report.quantity}<br>
-                            <b>Health:</b> ${report.health_status}
-                    `;
-
-                    // 2. Dynamic check: Append the image tag safely only if image_url is returned from the backend
-                    if (report.image_url) {
-                        popupContent += `
-                            <br><br>
-                            <div style="text-align: center;">
-                                <img src="${report.image_url}" alt="Animal Image" style="width: 100%; max-width: 180px; height: auto; border-radius: 4px; border: 1px solid #333; margin-top: 5px;">
-                            </div>
-                        `;
-                    }
-
-                    // 3. Close the container HTML element safely
-                    popupContent += `</div>`;
-
-                    // 4. Pass the combined string variable straight into your bindPopup function
-                    marker.bindPopup(popupContent);
-                    
-                    reportMarkers.push(marker);
-                } // 👈 FIXED: Added missing closing brace for 'if (report.lat && report.lng)'
-            });
+            updateMapMarkers(result.data);
         }
     } catch (error) {
         console.error("Failed to fetch locations from database:", error);
@@ -512,35 +475,56 @@ function updateMapMarkers(reports) {
     reportMarkers.forEach(m => map.removeLayer(m));
     reportMarkers = [];
     
-    reports.forEach(r => {
-    if (!r.lat || !r.lng) return;
-    // 1. Prepare the basic text information that must be displayed
-    let popupContent = `
-        <div style="font-family: sans-serif; min-width: 180px;">
-            <h4 style="margin: 0 0 8px 0; color: #f09c16;">${r.animal_type} (x${r.quantity})</h4>
-            <p style="margin: 0 0 4px 0;"><b>Health:</b> ${r.health_status}</p>
-            <p style="margin: 0 0 4px 0;"><b>Address:</b> ${r.address}</p>
-    `;
-    
-    // 2. Core condition: If the backend sends an image_url, append the <img> tag
-    if (r.image_url) {
-        popupContent += `
-            <div style="margin-top: 10px; text-align: center;">
-                <img src="${r.image_url}" alt="Animal Image" style="max-width: 100%; max-height: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-            </div>
-        `;
-    }
+    const reportsByLocation = new Map();
 
-    // 3. Close the outer div container
-    popupContent += `</div>`;
+    reports.forEach(report => {
+        const lat = Number(report.lat);
+        const lng = Number(report.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-    // 4. Create the marker and bind the assembled HTML popup
-    let marker = L.marker([r.lat, r.lng]).bindPopup(popupContent);
-    
-    // 5. Add the marker to the map and push it to your tracking array
-    marker.addTo(map);
-    reportMarkers.push(marker); 
-});
+        const locationKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        if (!reportsByLocation.has(locationKey)) {
+            reportsByLocation.set(locationKey, { lat, lng, reports: [] });
+        }
+        reportsByLocation.get(locationKey).reports.push(report);
+    });
+
+    reportsByLocation.forEach(location => {
+        const reportCards = location.reports.map((report, index) => {
+            const image = report.image_url
+                ? `<div style="margin-top: 8px; text-align: center;">
+                       <img src="${escapeLocationText(report.image_url)}" alt="Animal Image" style="max-width: 100%; max-height: 150px; border-radius: 8px;">
+                   </div>`
+                : '';
+            const divider = index < location.reports.length - 1
+                ? '<hr style="margin: 12px 0; border: 0; border-top: 1px solid #ddd;">'
+                : '';
+
+            return `
+                <section>
+                    <h4 style="margin: 0 0 8px; color: #f09c16;">
+                        ${escapeLocationText(report.animal_type)} (x${escapeLocationText(report.quantity)})
+                    </h4>
+                    <p style="margin: 0 0 4px;"><b>Report ID:</b> ${escapeLocationText(report.id)}</p>
+                    <p style="margin: 0 0 4px;"><b>Health:</b> ${escapeLocationText(report.health_status)}</p>
+                    <p style="margin: 0;"><b>Address:</b> ${escapeLocationText(report.address)}</p>
+                    ${image}
+                </section>${divider}`;
+        }).join('');
+
+        const count = location.reports.length;
+        const popupContent = `
+            <div style="font-family: sans-serif; min-width: 220px; max-height: 360px; overflow-y: auto;">
+                ${count > 1 ? `<div style="margin-bottom: 10px; font-weight: bold;">${count} reports at this location</div>` : ''}
+                ${reportCards}
+            </div>`;
+
+        const reportMarker = L.marker([location.lat, location.lng])
+            .bindPopup(popupContent, { maxWidth: 320 });
+        if (count > 1) reportMarker.bindTooltip(`${count} reports`);
+        reportMarker.addTo(map);
+        reportMarkers.push(reportMarker);
+    });
 }
     </script>
 <div id="settingsModal" class="settings-bottom-panel">
