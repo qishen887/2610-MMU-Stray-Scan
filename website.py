@@ -750,7 +750,7 @@ def export_pdf():
 def settings_page():
     return render_template('settings_profile.html')
 
-# --- 忘记密码 ---
+# --- Update Profile ---
 @app.route('/settings/profile', methods=['POST'])
 def update_profile():
     if 'user' not in session:
