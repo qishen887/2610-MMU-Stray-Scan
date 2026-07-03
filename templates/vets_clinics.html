@@ -152,7 +152,11 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Operating Hours <span class="text-danger">*</span></label>
-                    <input type="text" name="operating_hours" class="form-control" value="{{ edit_clinic.operating_hours }}" required>
+                    <textarea name="operating_hours" class="form-control" rows="3" required>{{ edit_clinic.operating_hours }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Google Maps Link</label>
+                    <input type="url" name="google_map_link" class="form-control" value="{{ edit_clinic.google_map_link if edit_clinic.google_map_link else '' }}" placeholder="https://maps.google.com/...">
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Clinic Image</label>
