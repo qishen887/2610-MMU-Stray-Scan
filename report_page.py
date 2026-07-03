@@ -11,18 +11,61 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 
-def reverse_geocode(lat, lon):
-    if lat is None or lon is None:
-        return "—"
+def reverse_geocode(latitude, longitude, language=None):
+    params = {
+        "lat": latitude,
+        "lon": longitude,
+        "format": "jsonv2",
+        "zoom": 18,
+        "addressdetails": 1,
+    }
+    if language:
+        params['accept-language'] = language
+
+    url = f"https://nominatim.openstreetmap.org/reverse?{urllib.parse.urlencode(params)}"
+    geocode_request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "CyberjayaStrayScan/1.0"},
+    )
+
     try:
-        params = urllib.parse.urlencode({"lat": lat, "lon": lon, "format": "json"})
-        url = f"https://nominatim.openstreetmap.org/reverse?{params}"
+        with urllib.request.urlopen(geocode_request, timeout=5) as response:
+            result = json.loads(response.read().decode('utf-8'))
+    except (OSError, ValueError) as error:
+        app.logger.warning("Reverse geocoding failed: %s", error)
+        return None
+
+    return result.get('display_name')
+
+def forward_geocode(query, limit=5):
+    # Search Nominatim for addresses matching a free-text query. Returns a list of {address, lat, lon} dicts (possibly empty).
+    if not query:
+        return []
+    try:
+        params = urllib.parse.urlencode({
+            "q": query,
+            "format": "json",
+            "addressdetails": 0,
+            "limit": limit,
+            # Bias results towards Malaysia since the app is used in Cyberjaya
+            "countrycodes": "my",
+        })
+        url = f"https://nominatim.openstreetmap.org/search?{params}"
         req = urllib.request.Request(url, headers={"User-Agent": "AnimalReportApp/1.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return data.get("display_name", f"{lat}, {lon}")
-    except Exception:
-        return f"{lat}, {lon}"
+        print(f"[GEOCODE SEARCH] query={query} -> {len(data)} result(s)")
+        return [
+            {
+                "address": item.get("display_name"),
+                "lat": item.get("lat"),
+                "lon": item.get("lon"),
+            }
+            for item in data
+        ]
+    except Exception as e:
+        print(f"[GEOCODE SEARCH ERROR] query={query} -> {e}")
+        return []
 
 app = Flask(__name__)
 app.secret_key = 'mmu'
@@ -80,10 +123,10 @@ class User(db.Model):
     __tablename__ = 'users'
 
     id         = db.Column(db.Integer, primary_key=True)
+    username   = db.Column(db.String(80), unique=True, nullable=False)
     email      = db.Column(db.String(120), unique=True, nullable=False)
     password   = db.Column(db.String(255), nullable=False)
     role       = db.Column(db.String(20),  nullable=False, default='customer')
-    created_at = db.Column(db.DateTime, default=utc_now)
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
@@ -108,10 +151,24 @@ def ensure_vet_clinic_image_column():
         with db.engine.begin() as connection:
             connection.execute(text("ALTER TABLE vet_clinic ADD COLUMN image VARCHAR(255)"))
 
+def ensure_user_created_at_column():
+    return
+
+def ensure_user_username_column():
+    inspector = inspect(db.engine)
+    if 'users' not in inspector.get_table_names():
+        return
+    columns = {column['name'] for column in inspector.get_columns('users')}
+    if 'username' not in columns:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(150)"))
+
 # Create all tables on first run
 with app.app_context():
     db.create_all()
     ensure_vet_clinic_image_column()
+    ensure_user_created_at_column()
+    ensure_user_username_column()
 
 
 # Routes
@@ -134,8 +191,10 @@ def homepage():
 def report():
     return render_template('report_page.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login_page():
+# FIXED: Added a secondary route decorator so HTML templates asking for 'show_login' won't crash 
+@app.route('/login', methods=['GET', 'POST'], endpoint='login_page')
+@app.route('/login-alt', methods=['GET', 'POST'], endpoint='show_login')
+def show_login():
     if request.method == 'GET':
         if 'user' in session:
             if session['role'] == 'admin':
@@ -152,6 +211,7 @@ def login_page():
     if user and user.check_password(password):
         session['user'] = user.email
         session['role'] = user.role
+        session['display_name'] = user.username or user.email.split('@')[0]
         if user.role == 'admin':
             return redirect(url_for('admin'))
         return redirect(url_for('homepage'))
@@ -159,6 +219,7 @@ def login_page():
         flash("Invalid email or password. Please try again.")
         return redirect(url_for('login_page'))
 
+ 
 @app.route('/register')
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -197,7 +258,9 @@ def signup():
         flash("Email already registered. Please login.")
         return redirect(url_for('login_page'))
 
+    username = request.form.get('username', '').strip() or email.split('@')[0]
     new_user = User(
+        username = username,
         email    = email,
         password = generate_password_hash(password),
         role     = user_role
@@ -219,14 +282,49 @@ def session_info():
         return jsonify({"logged_in": True, "email": session['user'], "role": session['role']})
     return jsonify({"logged_in": False})
 
+@app.route('/reverse-geocode', methods=['GET'])
+def reverse_geocode_endpoint():
+    try:
+        latitude = float(request.args.get('lat', ''))
+        longitude = float(request.args.get('lon', ''))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Valid lat and lon are required."}), 400
+
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return jsonify({"status": "error", "message": "Coordinates are outside the valid range."}), 400
+
+    address = reverse_geocode(
+        latitude,
+        longitude,
+        request.headers.get('Accept-Language'),
+    )
+    if not address:
+        return jsonify({"status": "error", "message": "Address lookup is temporarily unavailable."}), 502
+
+    return jsonify({"status": "success", "address": address})
+
+@app.route('/search-address', methods=['GET'])
+def search_address_endpoint():
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 3:
+        return jsonify({"status": "success", "results": []})
+    results = forward_geocode(query)
+    return jsonify({"status": "success", "results": results})
+
 @app.route('/submit', methods=['POST'])
-def submit():  # Receive the form, save the image, write a row to the DB.
+def submit():  
     try:
         animal_type   = request.form.get('animalType')
         custom_animal = request.form.get('customAnimal') or None
         address       = request.form.get('address') or None
         latitude      = request.form.get('latitude')
         longitude     = request.form.get('longitude')
+        if not address and latitude and longitude:
+            address = reverse_geocode(
+                float(latitude),
+                float(longitude),
+                request.headers.get('Accept-Language'),
+            ) or f"{latitude}, {longitude}"
         quantity      = request.form.get('quantity')
         health_status = request.form.get('healthStatus')
         details       = request.form.get('details') or None
@@ -270,8 +368,119 @@ def submit():  # Receive the form, save the image, write a row to the DB.
 
 @app.route('/settings')
 def settings_page():
-    return render_template('settings.html')
+    return render_template('settings_profile.html')
 from flask import send_from_directory, url_for
+
+@app.route('/settings/profile', methods=['POST'])
+def update_profile():
+    if 'user' not in session:
+        flash("Please log in to update your profile.")
+        return redirect(url_for('show_login'))
+
+    username = (request.form.get('username') or '').strip()
+    if not username:
+        flash("Display name cannot be empty.")
+        return redirect(url_for('settings_page', tab='profile'))
+
+    user = User.query.filter_by(email=session['user']).first()
+    if not user:
+        session.clear()
+        flash("Session expired. Please log in again.")
+        return redirect(url_for('show_login'))
+
+    user.username = username
+    db.session.commit()
+    session['display_name'] = username
+    flash("Profile updated successfully.")
+    return redirect(url_for('settings_page', tab='profile'))
+
+@app.route('/settings/password', methods=['POST'])
+def change_password():
+    if 'user' not in session:
+        flash("Please log in to change your password.")
+        return redirect(url_for('show_login'))
+
+    new_password = request.form.get('new_password') or ''
+    confirm_password = request.form.get('confirm_password') or ''
+
+    user = User.query.filter_by(email=session['user']).first()
+    if not user:
+        session.clear()
+        flash("Session expired. Please log in again.")
+        return redirect(url_for('show_login'))
+
+    if new_password != confirm_password:
+        flash("New passwords do not match.")
+        return redirect(url_for('settings_page', tab='password'))
+
+    if not (len(new_password) == 8 and new_password.isdigit()):
+        flash("Password must be exactly 8 digits.")
+        return redirect(url_for('settings_page', tab='password'))
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+    flash("Password updated successfully.")
+    return redirect(url_for('settings_page', tab='password'))
+
+@app.route('/api/get_all_reports', methods=['GET'])
+def get_all_reports():
+    try:
+        animal_type_query = request.args.get('animal_type', '')
+
+        if animal_type_query and animal_type_query != 'all':
+            reports = AnimalReport.query.filter_by(animal_type=animal_type_query).all()
+        else:
+            reports = AnimalReport.query.all()
+
+        report_list = []
+        for report in reports:
+            img_url = url_for('uploaded_file', filename=report.image) if getattr(report, 'image', None) else None
+            report_list.append({
+                'id': report.id,
+                'lat': report.latitude,
+                'lng': report.longitude,
+                'address': report.address if report.address else f"{report.latitude}, {report.longitude}",
+                'animal_type': report.animal_type,
+                'quantity': report.quantity,
+                'health_status': report.health_status,
+                'image_url': img_url
+            })
+        return jsonify({'status': 'success', 'data': report_list})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/filter_reports', methods=['GET'])
+def filter_reports():
+    try:
+        types_param = request.args.get('types', '')
+        healths_param = request.args.get('healths', '')
+
+        query = AnimalReport.query
+
+        if types_param:
+            query = query.filter(AnimalReport.animal_type.in_(types_param.split(',')))
+
+        if healths_param:
+            query = query.filter(AnimalReport.health_status.in_(healths_param.split(',')))
+
+        report_list = []
+        for report in query.all():
+            img_url = url_for('uploaded_file', filename=report.image) if getattr(report, 'image', None) else None
+            report_list.append({
+                'id': report.id,
+                'lat': report.latitude,
+                'lng': report.longitude,
+                'address': report.address if report.address else f"{report.latitude}, {report.longitude}",
+                'animal_type': report.animal_type,
+                'quantity': getattr(report, 'quantity', 1),
+                'health_status': report.health_status,
+                'image_url': img_url
+            })
+
+        return jsonify({'status': 'success', 'data': report_list})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # Optional read endpoints for admin dashboard to list reports, view details, delete, or update status.
 
@@ -526,11 +735,13 @@ def export_pdf():
 
 
 @app.route('/vet-clinics')
+@app.route('/vets_clinics')
 def vet_clinics():
     clinics = VetClinic.query.order_by(VetClinic.name).all()
-    return render_template('vets_clinics.html', clinics=clinics)
+    return render_template('vets_clinics.html', form_mode=None, edit_clinic=None, clinics=clinics)
 
 @app.route('/admin/vet-clinics/add', methods=['GET', 'POST'])
+@app.route('/vet-clinics/add', methods=['GET', 'POST'])
 def add_vet_clinic():
     if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
@@ -561,6 +772,7 @@ def add_vet_clinic():
 
 
 @app.route('/admin/vet-clinics/edit/<int:clinic_id>', methods=['GET', 'POST'])
+@app.route('/vet-clinics/<int:clinic_id>/edit', methods=['GET', 'POST'])
 def edit_vet_clinic(clinic_id):
     if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
@@ -587,6 +799,7 @@ def edit_vet_clinic(clinic_id):
 
 
 @app.route('/admin/vet-clinics/delete/<int:clinic_id>', methods=['POST'])
+@app.route('/vet-clinics/<int:clinic_id>/delete', methods=['POST'])
 def delete_vet_clinic(clinic_id):
     if 'user' not in session or session.get('role') != 'admin':
         return redirect(url_for('login_page'))
@@ -598,9 +811,10 @@ def delete_vet_clinic(clinic_id):
 
 def seed_default_users():
     defaults = [
-        {"email": "admin@mmu.edu.my",           "password": "admin123", "role": "admin"},
-        {"email": "user@student.mmu.edu.my",    "password": "user1234", "role": "customer"},
+        {"email": "admin@mmu.edu.my", "password": "admin123", "role": "admin", "username": "admin"},
+        {"email": "user@student.mmu.edu.my", "password": "user1234", "role": "customer", "username": "user"},
     ]
+    added_user = False
     for d in defaults:
         if not User.query.filter_by(email=d['email']).first():
             db.session.add(User(
@@ -608,7 +822,39 @@ def seed_default_users():
                 password = generate_password_hash(d['password']),
                 role     = d['role']
             ))
+            added_user = True
+    if added_user:
+        db.session.commit()
+
+@app.route('/forgot-password')
+def forgot_password_page():
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    email = request.form.get('email').lower().strip()
+    password = request.form.get('password')
+    confirm_password = request.form.get('confirm_password')
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("Email address not found. Please register first.")
+        return redirect(url_for('forgot_password_page'))
+
+    if password != confirm_password:
+        flash("Passwords do not match!")
+        return redirect(url_for('forgot_password_page'))
+
+    if not (len(password) == 8 and password.isdigit()):
+        flash("Format error: Password must be exactly 8 digits!")
+        return redirect(url_for('forgot_password_page'))
+
+    user.password = generate_password_hash(password)
     db.session.commit()
+
+    flash("Password reset successfully! Please login with your new password.")
+    return redirect(url_for('show_login'))
 
 with app.app_context():
     db.create_all()
