@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings</title>
+    <title>Profile | Cyberjaya Stray Scan</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body.settings-page {
@@ -237,12 +237,12 @@
         <ul class="sidebar-list">
             <li>
                 <button class="sidebar-item {% if selected_tab != 'password' %}selected{% endif %}" type="button" data-tab="profile">
-                    <span>&#128100;</span> User Profile
+                    <span>&#128100;</span> Profile Overview
                 </button>
             </li>
             <li>
                 <button class="sidebar-item {% if selected_tab == 'password' %}selected{% endif %}" type="button" data-tab="password">
-                    <span>&#128273;</span> Password Manager
+                    <span>&#128273;</span> Account Security
                 </button>
             </li>
         </ul>
@@ -260,8 +260,8 @@
         {% endwith %}
 
         <section id="profilePanel" class="settings-panel {% if selected_tab != 'password' %}active{% endif %}">
-            <h1>User Profile</h1>
-            <p class="settings-subtitle">View your account details and update your display name.</p>
+            <h1>My Profile</h1>
+            <p class="settings-subtitle">View and manage your personal account information.</p>
 
             <div class="setting-card">
                 <div class="profile-row">
@@ -304,8 +304,8 @@
         </section>
 
         <section id="passwordPanel" class="settings-panel {% if selected_tab == 'password' %}active{% endif %}">
-            <h1>Password Manager</h1>
-            <p class="settings-subtitle">Change your account password after confirming your current password.</p>
+            <h1>Account Security</h1>
+            <p class="settings-subtitle">Keep your profile secure by updating your account password.</p>
 
             {% if logged_in %}
             <div class="setting-card">
@@ -329,8 +329,8 @@
             </div>
             {% else %}
             <div class="setting-card">
-                <h3>Password Manager is unavailable for guests</h3>
-                <p class="settings-subtitle" style="margin-bottom: 0;">Log in first to manage your password.</p>
+                <h3>Account security is unavailable for guests</h3>
+                <p class="settings-subtitle" style="margin-bottom: 0;">Log in first to manage your account security.</p>
                 <div class="guest-actions">
                     <a class="primary-btn" href="{{ url_for('show_login') }}">Log In</a>
                 </div>
