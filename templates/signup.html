@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style> 
         body {
-            /* 使用与登录页完全相同的背景配置 */
+            /* Use the exact same background configuration as the login page. */
             background-image: url("{{ url_for('static', filename='pictureMMU.jpg') }}");
             background-size: cover;
             background-position: center;
@@ -21,7 +21,7 @@
             justify-content: center;
         }
         
-        /* 复用磨砂玻璃卡片样式 */
+        /* Reuse the frosted glass card style. */
         .signup-card {
             border: none;
             border-radius: 15px;
@@ -129,21 +129,21 @@
     </div>
     
     <script>
-    // 眼睛切换函数
+    // Eye-switching function
     function togglePassword(inputId, btn) {
         const input = document.getElementById(inputId);
         if (input) {
             if (input.type === "password") {
-                input.type = "text";     // 变成明文
-                btn.textContent = "🕶️";  // 换个图标
+                input.type = "text";     // Convert to plaintext
+                btn.textContent = "🕶️";  // Change the icon
             } else {
-                input.type = "password"; // 变回加密
+                input.type = "password"; // Revert to encrypted
                 btn.textContent = "👁️";
             }
         }
     }
 
-    // 防止表单重复提交
+    // Prevent duplicate form submissions
     document.getElementById('signupForm').addEventListener('submit', function() {
         const btn = document.getElementById('signupBtn');
         if (btn) {
