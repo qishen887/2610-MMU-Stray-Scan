@@ -150,18 +150,93 @@
         let userPos = null;
         var marker;
         let reportMarkers = [];
+        const addressCache = new Map();
+        let reverseGeocodeQueue = Promise.resolve();
+        let nextReverseGeocodeTime = 0;
 
         // --- Map Initialization ---
         var map = L.map('map').setView(cyberCoord, 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+function escapeLocationText(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    })[character]);
+}
+
+function buildLocationPopup(title, latlng, address) {
+    return `
+        <div style="min-width: 220px; line-height: 1.45;">
+            <strong>${escapeLocationText(title)}</strong><br>
+            <span><b>Address:</b> ${escapeLocationText(address)}</span><br>
+            <span><b>Latitude:</b> ${latlng.lat.toFixed(6)}</span><br>
+            <span><b>Longitude:</b> ${latlng.lng.toFixed(6)}</span>
+        </div>
+    `;
+}
+
+function reverseGeocode(latlng) {
+    const cacheKey = `${latlng.lat.toFixed(5)},${latlng.lng.toFixed(5)}`;
+    if (addressCache.has(cacheKey)) return addressCache.get(cacheKey);
+
+    const request = async () => {
+        const delay = Math.max(0, nextReverseGeocodeTime - Date.now());
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        nextReverseGeocodeTime = Date.now() + 1100;
+
+        const params = new URLSearchParams({
+            format: 'jsonv2',
+            lat: latlng.lat,
+            lon: latlng.lng,
+            zoom: '18',
+            addressdetails: '1'
+        });
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`);
+        if (!response.ok) throw new Error(`Address lookup failed with status ${response.status}`);
+
+        const result = await response.json();
+        return result.display_name || 'Address not found';
+    };
+
+    const lookup = reverseGeocodeQueue.then(request, request);
+    reverseGeocodeQueue = lookup.catch(() => {});
+    addressCache.set(cacheKey, lookup);
+    lookup.catch(() => addressCache.delete(cacheKey));
+    return lookup;
+}
+
+function showLocationMarker(latlng, title) {
+    if (marker) map.removeLayer(marker);
+
+    const locationMarker = L.marker(latlng).addTo(map);
+    marker = locationMarker;
+    locationMarker.bindPopup(buildLocationPopup(title, latlng, 'Finding address...')).openPopup();
+
+    reverseGeocode(latlng)
+        .then(address => {
+            if (map.hasLayer(locationMarker)) {
+                locationMarker.setPopupContent(buildLocationPopup(title, latlng, address));
+            }
+        })
+        .catch(error => {
+            console.error('Failed to find address:', error);
+            if (map.hasLayer(locationMarker)) {
+                locationMarker.setPopupContent(buildLocationPopup(title, latlng, 'Address unavailable'));
+            }
+        });
+}
 
 // Auto-detect user position
 map.locate({setView: true, maxZoom: 16});
 map.on('locationfound', function(e) {
     userPos = e.latlng;
-    if (marker) map.removeLayer(marker);
-    // 把 "Origin Detected" 改成了 "Your current location"
-    marker = L.marker(e.latlng).addTo(map).bindPopup("Your current location").openPopup();
+    showLocationMarker(e.latlng, 'Your current location');
 });
 map.on('locationerror', function(e) {
     console.log("Location error: ", e.message);
@@ -181,11 +256,8 @@ function recenterMap(event) {
             
             // Check if user's actual location is successfully retrieved
             if (userPos) {
-                // If a marker already exists on the map, remove it first to avoid duplicates
-                if (marker) map.removeLayer(marker);
-
                 // Add the marker to the user's current location and open its popup
-                marker = L.marker(userPos).addTo(map).bindPopup("Your current location").openPopup();
+                showLocationMarker(userPos, 'Your current location');
 
                 // If yes, fly smoothly to user's location with zoom level 16
                 map.flyTo(userPos, 16);
@@ -197,8 +269,7 @@ function recenterMap(event) {
 
         // Add marker on manual click
         map.on('click', function(e) {
-            if (marker) map.removeLayer(marker);
-            marker = L.marker(e.latlng).addTo(map).bindPopup("Pinned Location").openPopup();
+            showLocationMarker(e.latlng, 'Pinned location');
         });
 
         // Fix rendering on initial load
