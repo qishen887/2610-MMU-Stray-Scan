@@ -11,34 +11,24 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 
-def reverse_geocode(latitude, longitude, language=None):
-    params = {
-        "lat": latitude,
-        "lon": longitude,
-        "format": "jsonv2",
-        "zoom": 18,
-        "addressdetails": 1,
-    }
-    if language:
-        params['accept-language'] = language
-
-    url = f"https://nominatim.openstreetmap.org/reverse?{urllib.parse.urlencode(params)}"
-    geocode_request = urllib.request.Request(
-        url,
-        headers={"User-Agent": "CyberjayaStrayScan/1.0"},
-    )
-
+def reverse_geocode(lat, lon):
+    if lat is None or lon is None:
+        return "—"
     try:
-        with urllib.request.urlopen(geocode_request, timeout=5) as response:
-            result = json.loads(response.read().decode('utf-8'))
-    except (OSError, ValueError) as error:
-        app.logger.warning("Reverse geocoding failed: %s", error)
-        return None
-
-    return result.get('display_name')
+        params = urllib.parse.urlencode({"lat": lat, "lon": lon, "format": "json"})
+        url = f"https://nominatim.openstreetmap.org/reverse?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "AnimalReportApp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        print(f"[GEOCODE] lat={lat} lon={lon} -> {data}")
+        return data.get("display_name", f"{lat}, {lon}")
+    except Exception as e:
+        print(f"[GEOCODE ERROR] lat={lat} lon={lon} -> {e}")
+        return f"{lat}, {lon}"
 
 def forward_geocode(query, limit=5):
-    # Search Nominatim for addresses matching a free-text query. Returns a list of {address, lat, lon} dicts (possibly empty).
+    """Search Nominatim for addresses matching a free-text query.
+    Returns a list of {address, lat, lon} dicts (possibly empty)."""
     if not query:
         return []
     try:
@@ -102,6 +92,7 @@ class AnimalReport(db.Model):
     status        = db.Column(db.String(20),  nullable=False, default='pending')  # pending/approved/rejected
     created_at    = db.Column(db.DateTime,    default=utc_now)
     submitted_by_email = db.Column(db.String(120), nullable=True)  # None = guest submission
+    submitted_by_username = db.Column(db.String(150), nullable=True)  # display name at time of submission
 
     def to_dict(self):  #Return a JSON-serialisable dict for API responses.
         return {
@@ -116,8 +107,21 @@ class AnimalReport(db.Model):
             "image":         self.image if self.image else None,
             "status":        self.status,
             "created_at":    self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "submitted_by":  self.submitted_by_email or "Guest",
+            "submitted_by":  self._format_submitted_by(),
+            "submitted_by_email": self.submitted_by_email or None,
+            "submitted_by_username": self.submitted_by_username or None,
         }
+
+    def _format_submitted_by(self):
+        # e.g. "johndoe (johndoe@student.mmu.edu.my)" — falls back gracefully
+        # if only one of the two is available, or "Guest" if neither.
+        if self.submitted_by_username and self.submitted_by_email:
+            return f"{self.submitted_by_username} ({self.submitted_by_email})"
+        if self.submitted_by_username:
+            return self.submitted_by_username
+        if self.submitted_by_email:
+            return self.submitted_by_email
+        return "Guest"
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -163,12 +167,22 @@ def ensure_user_username_column():
         with db.engine.begin() as connection:
             connection.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(150)"))
 
+def ensure_report_submitted_by_username_column():
+    inspector = inspect(db.engine)
+    if 'animals_reports' not in inspector.get_table_names():
+        return
+    columns = {column['name'] for column in inspector.get_columns('animals_reports')}
+    if 'submitted_by_username' not in columns:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE animals_reports ADD COLUMN submitted_by_username VARCHAR(150)"))
+
 # Create all tables on first run
 with app.app_context():
     db.create_all()
     ensure_vet_clinic_image_column()
     ensure_user_created_at_column()
     ensure_user_username_column()
+    ensure_report_submitted_by_username_column()
 
 
 # Routes
@@ -184,6 +198,7 @@ def home():
 
 
 @app.route('/home')
+@app.route('/user-dashboard', endpoint='user_dashboard')
 def homepage():
     return render_template('homepage.html')
 
@@ -242,8 +257,8 @@ def signup():
         flash("Passwords do not match!")
         return redirect(url_for('signup'))
 
-    if len(password) != 8:
-        flash("Password must be exactly 8 characters!")
+    if not (len(password) == 8 and password.isdigit()):
+        flash("Password must be exactly 8 digits!")
         return redirect(url_for('signup'))
 
     if email.endswith('@mmu.edu.my'):
@@ -284,23 +299,11 @@ def session_info():
 
 @app.route('/reverse-geocode', methods=['GET'])
 def reverse_geocode_endpoint():
-    try:
-        latitude = float(request.args.get('lat', ''))
-        longitude = float(request.args.get('lon', ''))
-    except (TypeError, ValueError):
-        return jsonify({"status": "error", "message": "Valid lat and lon are required."}), 400
-
-    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
-        return jsonify({"status": "error", "message": "Coordinates are outside the valid range."}), 400
-
-    address = reverse_geocode(
-        latitude,
-        longitude,
-        request.headers.get('Accept-Language'),
-    )
-    if not address:
-        return jsonify({"status": "error", "message": "Address lookup is temporarily unavailable."}), 502
-
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    if not lat or not lon:
+        return jsonify({"status": "error", "message": "lat and lon are required"}), 400
+    address = reverse_geocode(lat, lon)
     return jsonify({"status": "success", "address": address})
 
 @app.route('/search-address', methods=['GET'])
@@ -320,11 +323,7 @@ def submit():
         latitude      = request.form.get('latitude')
         longitude     = request.form.get('longitude')
         if not address and latitude and longitude:
-            address = reverse_geocode(
-                float(latitude),
-                float(longitude),
-                request.headers.get('Accept-Language'),
-            ) or f"{latitude}, {longitude}"
+            address = reverse_geocode(latitude, longitude)
         quantity      = request.form.get('quantity')
         health_status = request.form.get('healthStatus')
         details       = request.form.get('details') or None
@@ -348,7 +347,8 @@ def submit():
             details       = details,
             image         = saved_filename,
             status        = 'pending',
-            submitted_by_email = session.get('user'),  # None if not logged in
+            submitted_by_email    = session.get('user'),           # None if not logged in
+            submitted_by_username = session.get('display_name'),   # None if not logged in
         )
         db.session.add(report)
         db.session.commit()
@@ -400,6 +400,7 @@ def change_password():
         flash("Please log in to change your password.")
         return redirect(url_for('show_login'))
 
+    current_password = request.form.get('current_password') or ''
     new_password = request.form.get('new_password') or ''
     confirm_password = request.form.get('confirm_password') or ''
 
@@ -408,6 +409,10 @@ def change_password():
         session.clear()
         flash("Session expired. Please log in again.")
         return redirect(url_for('show_login'))
+
+    if not check_password_hash(user.password, current_password):
+        flash("Current password is incorrect.")
+        return redirect(url_for('settings_page', tab='password'))
 
     if new_password != confirm_password:
         flash("New passwords do not match.")
@@ -505,6 +510,7 @@ def delete_report(report_id):   #Delete a report by ID.
 
 
 @app.route('/admin')
+@app.route('/admin-dashboard', endpoint='admin_dashboard')
 def admin():
     if 'user' not in session:
         flash("Please log in to access the admin panel.")
@@ -596,7 +602,7 @@ def export_excel():
             report.details or "—",
             report.image or "—",
             report.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            report.submitted_by_email or "Guest",
+            report._format_submitted_by(),
         ]
         for c_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=r_idx, column=c_idx, value=value)
@@ -686,7 +692,8 @@ def export_pdf():
             rpt.status.capitalize(),
             Paragraph(rpt.details or "—", wrap_style),
             rpt.created_at.strftime("%Y-%m-%d\n%H:%M"),
-            Paragraph(rpt.submitted_by_email or "<i>Guest</i>", wrap_style),
+            Paragraph(rpt._format_submitted_by() if (rpt.submitted_by_username or rpt.submitted_by_email) else "<i>Guest</i>", wrap_style),
+            # (kept italic Guest style for consistency with prior PDF look)
         ])
  
     col_widths_pdf = [10*mm, 22*mm, 48*mm, 10*mm, 16*mm, 16*mm, 60*mm, 25*mm, 32*mm]
