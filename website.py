@@ -834,5 +834,19 @@ def reset_password():
     return redirect(url_for('show_login'))
 from flask import send_from_directory, url_for
 
+@app.route('/past-records')
+def past_records():
+    if 'user' not in session:
+        flash("Please log in to view past records.")
+        return redirect(url_for('login_page'))
+
+    selected_status = request.args.get('status')
+    query = AnimalReport.query.order_by(AnimalReport.created_at.desc())
+    if selected_status in ('pending', 'approved', 'rejected'):
+        query = query.filter_by(status=selected_status)
+
+    reports = query.all()
+    return render_template('past_records.html', reports=reports, selected_status=selected_status)
+
 if __name__ == '__main__':
     app.run(debug=True)
