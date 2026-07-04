@@ -38,6 +38,27 @@
             overflow: hidden;
         }
 
+        .back-home {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 20px 0 0 20px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.2s ease;
+        }
+
+        .back-home:hover {
+            background: #fff;
+            transform: translateX(-2px);
+        }
+
         .header {
             padding: 30px;
             text-align: center;
@@ -261,9 +282,37 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
+
+        .locate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            padding: 8px 14px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: #fff;
+            color: #667eea;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .locate-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .locate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
+    <a href="{{ url_for('homepage') }}" class="back-home">&larr; Back to Homepage</a>
+
     <div class="container">
         <div class="header">
             <h1>Report Animal Findings</h1>
@@ -328,8 +377,11 @@
                     <!-- Map input: hidden fields submitted instead -->
                     <div id="mapDiv" style="display:none;">
                         <p style="font-size:12px;color:#888;margin-bottom:6px;">
-                            📍 Click on the map to pin your location.
+                            📍 Click on the map to pin your location, or use the button below to jump to where you are.
                         </p>
+                        <button type="button" class="locate-btn" id="btnLocateMe" onclick="locateMe()">
+                            🎯 Use My Location
+                        </button>
                         <div id="map" style="height:300px;border-radius:10px;border:2px solid #e0e0e0;"></div>
                         <!-- These replace the manual input when map mode is active -->
                         <input type="hidden" id="addressHidden" name="address">
@@ -521,7 +573,82 @@
             }
         });
 
+        // ── "Use My Location" — center map on the browser's geolocation ───────
+        async function placePinAt(lat, lng) {
+            // Move the map and drop/move the marker, same as a manual map click
+            map.setView([lat, lng], 16);
+
+            if (marker) map.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(map);
+
+            document.getElementById('latitude').value  = lat;
+            document.getElementById('longitude').value = lng;
+            document.getElementById('pinLabel').textContent = 'Fetching address...';
+
+            try {
+                const res  = await fetch(`/reverse-geocode?lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                const addr = data.address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('addressHidden').value = addr;
+                document.getElementById('pinLabel').textContent = '📍 ' + addr;
+                marker.bindPopup(addr).openPopup();
+            } catch (err) {
+                const addr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('addressHidden').value = addr;
+                document.getElementById('pinLabel').textContent = '📍 ' + addr;
+                marker.bindPopup(addr).openPopup();
+            }
+        }
+
+        function locateMe(silent) {
+            if (!navigator.geolocation) {
+                if (!silent) alert('Geolocation is not supported by your browser.');
+                return;
+            }
+
+            const btn = document.getElementById('btnLocateMe');
+            const originalText = btn.textContent;
+            if (!silent) {
+                btn.disabled = true;
+                btn.textContent = '📡 Locating...';
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async function (position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    await placePinAt(lat, lng);
+                    if (!silent) {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                },
+                function (error) {
+                    if (!silent) {
+                        let message = 'Could not get your location.';
+                        if (error.code === error.PERMISSION_DENIED) {
+                            message = 'Location permission denied. Please allow location access and try again.';
+                        } else if (error.code === error.POSITION_UNAVAILABLE) {
+                            message = 'Location information is unavailable.';
+                        } else if (error.code === error.TIMEOUT) {
+                            message = 'Location request timed out.';
+                        }
+                        alert(message);
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    } else {
+                        // Silent auto-attempt on first open of map mode — just log it,
+                        // don't interrupt the user; they can still click the button.
+                        console.log('Auto-locate skipped:', error.message);
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
         // ── Location mode toggle ──────────────────────────────────────────────
+        let autoLocateAttempted = false;
+
         function switchMode(mode) {
             const manualDiv = document.getElementById('manualDiv');
             const mapDiv    = document.getElementById('mapDiv');
@@ -545,7 +672,16 @@
                 btnManual.classList.remove('active');
                 btnMap.classList.add('active');
                 // Leaflet needs this when shown after being hidden
-                setTimeout(() => map.invalidateSize(), 100);
+                setTimeout(() => {
+                    map.invalidateSize();
+                    // Auto-detect the user's location the first time the map is opened,
+                    // same behaviour as the homepage map. The button still lets them
+                    // re-trigger this (or set a location manually) any time after.
+                    if (!autoLocateAttempted) {
+                        autoLocateAttempted = true;
+                        locateMe(true);
+                    }
+                }, 100);
             }
         }
 
