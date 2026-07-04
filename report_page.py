@@ -11,11 +11,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 
-def reverse_geocode(lat, lon):
+def reverse_geocode(lat, lon, language=None):
     if lat is None or lon is None:
         return "—"
     try:
-        params = urllib.parse.urlencode({"lat": lat, "lon": lon, "format": "json"})
+        params_data = {
+            "lat": lat,
+            "lon": lon,
+            "format": "jsonv2",
+            "zoom": 18,
+            "addressdetails": 1,
+        }
+        if language:
+            params_data["accept-language"] = language
+        params = urllib.parse.urlencode(params_data)
         url = f"https://nominatim.openstreetmap.org/reverse?{params}"
         req = urllib.request.Request(url, headers={"User-Agent": "AnimalReportApp/1.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
@@ -294,16 +303,24 @@ def logout():
 @app.route('/session-info')
 def session_info():
     if 'user' in session:
-        return jsonify({"logged_in": True, "email": session['user'], "role": session['role']})
+        return jsonify({
+            "logged_in": True,
+            "email": session['user'],
+            "role": session.get('role', 'customer'),
+            "display_name": session.get('display_name') or session['user'].split('@')[0],
+        })
     return jsonify({"logged_in": False})
 
 @app.route('/reverse-geocode', methods=['GET'])
 def reverse_geocode_endpoint():
-    lat = request.args.get('lat')
-    lon = request.args.get('lon')
-    if not lat or not lon:
-        return jsonify({"status": "error", "message": "lat and lon are required"}), 400
-    address = reverse_geocode(lat, lon)
+    try:
+        lat = float(request.args.get('lat', ''))
+        lon = float(request.args.get('lon', ''))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Valid lat and lon are required."}), 400
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify({"status": "error", "message": "Coordinates are outside the valid range."}), 400
+    address = reverse_geocode(lat, lon, request.headers.get('Accept-Language'))
     return jsonify({"status": "success", "address": address})
 
 @app.route('/search-address', methods=['GET'])
@@ -839,6 +856,7 @@ def seed_default_users():
     for d in defaults:
         if not User.query.filter_by(email=d['email']).first():
             db.session.add(User(
+                username = d['username'],
                 email    = d['email'],
                 password = generate_password_hash(d['password']),
                 role     = d['role']

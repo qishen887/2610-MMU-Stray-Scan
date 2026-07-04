@@ -61,6 +61,7 @@ class AnimalReport(db.Model):
     status        = db.Column(db.String(20),  nullable=False, default='pending')  # pending/approved/rejected
     created_at    = db.Column(db.DateTime,    default=utc_now)
     submitted_by_email = db.Column(db.String(120), nullable=True)  # None = guest submission
+    submitted_by_username = db.Column(db.String(150), nullable=True)
 
     def to_dict(self):  #Return a JSON-serialisable dict for API responses.
         return {
@@ -75,8 +76,15 @@ class AnimalReport(db.Model):
             "image":         self.image if self.image else None,
             "status":        self.status,
             "created_at":    self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "submitted_by":  self.submitted_by_email or "Guest",
+            "submitted_by":  self._format_submitted_by(),
+            "submitted_by_email": self.submitted_by_email or None,
+            "submitted_by_username": self.submitted_by_username or None,
         }
+
+    def _format_submitted_by(self):
+        if self.submitted_by_username and self.submitted_by_email:
+            return f"{self.submitted_by_username} ({self.submitted_by_email})"
+        return self.submitted_by_username or self.submitted_by_email or "Guest"
 
 class VetClinic(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -107,12 +115,22 @@ def ensure_vet_clinic_image_column():
     if 'image' not in columns:
         with db.engine.begin() as connection:
             connection.execute(text("ALTER TABLE vet_clinic ADD COLUMN image VARCHAR(255)"))
+
+def ensure_report_submitted_by_username_column():
+    inspector = inspect(db.engine)
+    if 'animals_reports' not in inspector.get_table_names():
+        return
+    columns = {column['name'] for column in inspector.get_columns('animals_reports')}
+    if 'submitted_by_username' not in columns:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE animals_reports ADD COLUMN submitted_by_username VARCHAR(150)"))
     
 # 3. 确保在程序启动时，数据库和表能在本地自动创建好
 with app.app_context():
     db.create_all()
     ensure_user_username_column()
     ensure_vet_clinic_image_column()
+    ensure_report_submitted_by_username_column()
 
 # Routes
 app.secret_key = 'mmu'  # same key as in the login file
@@ -126,10 +144,12 @@ def home():
     return render_template('homepage.html')
 
 @app.route('/home')
+@app.route('/user-dashboard', endpoint='user_dashboard')
 def homepage():
     return render_template('homepage.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'], endpoint='login_page')
+@app.route('/login-alt', methods=['GET', 'POST'], endpoint='show_login')
 def show_login():
     if request.method == 'GET':
         if 'user' in session:
@@ -190,8 +210,8 @@ def signup():
         flash("Passwords do not match!")
         return redirect(url_for('signup'))
 
-    if len(password) != 8:
-        flash("Password must be exactly 8 characters!")
+    if not (len(password) == 8 and password.isdigit()):
+        flash("Password must be exactly 8 digits!")
         return redirect(url_for('signup'))
 
     if email.endswith('@mmu.edu.my'):
@@ -246,6 +266,38 @@ def reverse_geocode(latitude, longitude, language=None):
     return result.get('display_name')
 
 
+def forward_geocode(query, limit=5):
+    if not query:
+        return []
+
+    params = urllib.parse.urlencode({
+        "q": query,
+        "format": "json",
+        "addressdetails": 0,
+        "limit": limit,
+        "countrycodes": "my",
+    })
+    geocode_request = urllib.request.Request(
+        f"https://nominatim.openstreetmap.org/search?{params}",
+        headers={"User-Agent": "CyberjayaStrayScan/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(geocode_request, timeout=5) as response:
+            results = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError) as error:
+        app.logger.warning("Address search failed: %s", error)
+        return []
+
+    return [
+        {
+            "address": item.get("display_name"),
+            "lat": item.get("lat"),
+            "lon": item.get("lon"),
+        }
+        for item in results
+    ]
+
+
 @app.route('/reverse-geocode', methods=['GET'])
 def reverse_geocode_endpoint():
     try:
@@ -267,6 +319,14 @@ def reverse_geocode_endpoint():
         return jsonify({"status": "error", "message": "Address lookup is temporarily unavailable."}), 502
 
     return jsonify({"status": "success", "address": address})
+
+
+@app.route('/search-address', methods=['GET'])
+def search_address_endpoint():
+    query = request.args.get('q', '').strip()
+    if len(query) < 3:
+        return jsonify({"status": "success", "results": []})
+    return jsonify({"status": "success", "results": forward_geocode(query)})
 
 @app.route('/submit', methods=['POST'])
 def submit():  # Receive the form, save the image, write a row to the DB.
@@ -306,6 +366,7 @@ def submit():  # Receive the form, save the image, write a row to the DB.
             image         = saved_filename,
             status        = 'pending',
             submitted_by_email = session.get('user'),  # None if not logged in
+            submitted_by_username = session.get('display_name'),
         )
         db.session.add(report)
         db.session.commit()
@@ -371,6 +432,8 @@ def vet_clinics():
 @app.route('/admin/vet-clinics/add', methods=['GET', 'POST'])
 @app.route('/vet-clinics/add', methods=['GET', 'POST'])
 def add_vet_clinic():
+    if 'user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login_page'))
     if request.method == 'POST':
         image_file = request.files.get('image')
         image_filename = None
@@ -399,6 +462,8 @@ def add_vet_clinic():
 @app.route('/admin/vet-clinics/edit/<int:clinic_id>', methods=['GET', 'POST'])
 @app.route('/vet-clinics/<int:clinic_id>/edit', methods=['GET', 'POST'])
 def edit_vet_clinic(clinic_id):
+    if 'user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login_page'))
     clinic = VetClinic.query.get_or_404(clinic_id)
     if request.method == 'POST':
         image_file = request.files.get('image')
@@ -424,6 +489,8 @@ def edit_vet_clinic(clinic_id):
 @app.route('/admin/vet-clinics/delete/<int:clinic_id>', methods=['POST'])
 @app.route('/vet-clinics/<int:clinic_id>/delete', methods=['POST'])
 def delete_vet_clinic(clinic_id):
+    if 'user' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login_page'))
     clinic = VetClinic.query.get_or_404(clinic_id)
     db.session.delete(clinic)
     db.session.commit()
@@ -538,6 +605,7 @@ def delete_report(report_id):
 
 
 @app.route('/admin')
+@app.route('/admin-dashboard', endpoint='admin_dashboard')
 def admin():
     if 'user' not in session:
         flash("Please log in to access the admin panel.")
@@ -780,6 +848,7 @@ def change_password():
         flash("Please log in to change your password.")
         return redirect(url_for('show_login'))
 
+    current_password = request.form.get('current_password') or ''
     new_password = request.form.get('new_password') or ''
     confirm_password = request.form.get('confirm_password') or ''
 
@@ -788,6 +857,10 @@ def change_password():
         session.clear()
         flash("Session expired. Please log in again.")
         return redirect(url_for('show_login'))
+
+    if not check_password_hash(user.password, current_password):
+        flash("Current password is incorrect.")
+        return redirect(url_for('settings_page', tab='password'))
 
     if new_password != confirm_password:
         flash("New passwords do not match.")
