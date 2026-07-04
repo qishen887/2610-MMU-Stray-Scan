@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MMU Stray Scan</title>
+    <script>
+        // Apply the saved theme before rendering to avoid a light-mode flash.
+        try {
+            if (localStorage.getItem('nightMode') === 'true') {
+                document.documentElement.dataset.theme = 'night';
+            }
+        } catch (error) {
+            console.warn('Unable to load the saved theme.', error);
+        }
+    </script>
     
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     
@@ -311,6 +321,38 @@ function closeSettings() {
     document.getElementById('settingsModal').style.display = 'none';
 }
 
+function updateNightModeControl() {
+    const enabled = document.documentElement.dataset.theme === 'night';
+    const control = document.getElementById('nightModeControl');
+    const status = document.getElementById('nightModeStatus');
+
+    if (control) control.setAttribute('aria-checked', String(enabled));
+    if (status) status.textContent = enabled ? 'On' : 'Off';
+}
+
+function setNightMode(enabled) {
+    if (enabled) {
+        document.documentElement.dataset.theme = 'night';
+    } else {
+        delete document.documentElement.dataset.theme;
+    }
+
+    try {
+        localStorage.setItem('nightMode', String(enabled));
+    } catch (error) {
+        console.warn('Unable to save the theme preference.', error);
+    }
+
+    updateNightModeControl();
+}
+
+function toggleNightMode(event) {
+    if (event) event.stopPropagation();
+    setNightMode(document.documentElement.dataset.theme !== 'night');
+}
+
+document.addEventListener('DOMContentLoaded', updateNightModeControl);
+
 // Background theme change logic
 function changeBg(color, event) {
     // Robustness: Prevent click event from bubbling up and accidentally closing the panel
@@ -538,6 +580,13 @@ function updateMapMarkers(reports) {
     <div class="console-box solid-version">
         <div class="console-body">
             <div class="settings-list">
+                <div id="nightModeControl" class="settings-item night-mode-control" role="switch" aria-checked="false" tabindex="0" onclick="toggleNightMode(event)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleNightMode(event); }">
+                    <span>Night Mode</span>
+                    <span class="theme-toggle" aria-hidden="true">
+                        <span class="theme-toggle-thumb"></span>
+                    </span>
+                    <span id="nightModeStatus" class="visually-hidden">Off</span>
+                </div>
                 <div class="settings-item" onclick="changeBg('default', event)">
     <span>Default Theme</span>
     <div class="color-preview" style="background: linear-gradient(#f09c16, black);"></div>
