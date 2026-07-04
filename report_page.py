@@ -616,16 +616,24 @@ def export_excel():
  
     # Write data rows
     row_fill_even = PatternFill("solid", start_color="F8F9FA")
+    import math
+
+    # Columns that wrap text and need their row height calculated: Location (4), Details (8)
+    WRAP_COLS = {4: col_widths[3], 8: col_widths[7]}   # column index -> its width (chars)
+    LINE_HEIGHT = 14   # approx points per wrapped line at font size 10
+
     for r_idx, report in enumerate(reports, 2):
+        location_text = report.address or (f"{report.latitude}, {report.longitude}" if report.latitude else "—")
+        details_text  = report.details or "—"
         row_data = [
             report.id,
             report.animal_type,
             report.custom_animal or "—",
-            report.address or (f"{report.latitude}, {report.longitude}" if report.latitude else "—"),
+            location_text,
             report.quantity,
             report.health_status,
             report.status,
-            report.details or "—",
+            details_text,
             report.image or "—",
             report.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             report._format_submitted_by(),
@@ -633,7 +641,7 @@ def export_excel():
         for c_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=r_idx, column=c_idx, value=value)
             cell.border    = thin_border
-            cell.alignment = Alignment(vertical="center", wrap_text=(c_idx == 8))
+            cell.alignment = Alignment(vertical="center", wrap_text=(c_idx in WRAP_COLS))
             cell.font      = Font(name="Arial", size=10)
             if r_idx % 2 == 0:
                 cell.fill = row_fill_even
@@ -651,7 +659,16 @@ def export_excel():
                 else:
                     cell.font = Font(color="2E4057", name="Arial", size=10)
 
-        ws.row_dimensions[r_idx].height = 18
+        # Row height must grow to fit the longest wrapped text in this row, or
+        # Excel/Google Sheets will visually overflow the wrapped text upward,
+        # bleeding into the row above (this is what caused row 2's Details text
+        # to appear overlapping the frozen header row).
+        needed_lines = 1
+        for c_idx, col_width in WRAP_COLS.items():
+            text = row_data[c_idx - 1] or ""
+            lines_for_col = max(1, math.ceil(len(str(text)) / max(col_width - 2, 1)))
+            needed_lines = max(needed_lines, lines_for_col)
+        ws.row_dimensions[r_idx].height = max(18, needed_lines * LINE_HEIGHT)
  
     # Summary row at the bottom
     last = len(reports) + 2
@@ -682,6 +699,17 @@ def export_pdf():
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.enums import TA_CENTER
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+
+    # Register a CJK-capable font. Helvetica (the default) has no Chinese/Japanese/
+    # Korean glyphs, so any such characters (e.g. in Nominatim-geocoded addresses
+    # like "赛城, 雪邦县, 雪兰莪州") render as black boxes. STSong-Light is one of
+    # reportlab's built-in CID fonts — it ships with reportlab itself (no font
+    # file/network download needed) and also renders normal Latin text fine.
+    CJK_FONT = "STSong-Light"
+    if CJK_FONT not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(UnicodeCIDFont(CJK_FONT))
 
     def utc_now():
         return datetime.now(timezone.utc) + timedelta(hours=8)  # Adjust if you want a different timezone
@@ -695,10 +723,12 @@ def export_pdf():
  
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("title", parent=styles["Title"],
+                                 fontName=CJK_FONT,
                                  fontSize=16, spaceAfter=4, textColor=colors.HexColor("#2E4057"))
     sub_style   = ParagraphStyle("sub", parent=styles["Normal"],
+                                 fontName=CJK_FONT,
                                  fontSize=9, textColor=colors.grey, spaceAfter=14)
-    wrap_style  = ParagraphStyle("wrap", parent=styles["Normal"], fontSize=8, leading=10)
+    wrap_style  = ParagraphStyle("wrap", parent=styles["Normal"], fontName=CJK_FONT, fontSize=8, leading=10)
  
     story = [
         Paragraph("🐾 Animal Report Export", title_style),
@@ -735,13 +765,13 @@ def export_pdf():
         # Header
         ("BACKGROUND",  (0,0), (-1,0), colors.HexColor("#2E4057")),
         ("TEXTCOLOR",   (0,0), (-1,0), colors.white),
-        ("FONTNAME",    (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTNAME",    (0,0), (-1,0), CJK_FONT),
         ("FONTSIZE",    (0,0), (-1,0), 8),
         ("ALIGN",       (0,0), (-1,0), "CENTER"),
         ("BOTTOMPADDING",(0,0),(-1,0), 8),
         ("TOPPADDING",  (0,0), (-1,0), 8),
         # Body
-        ("FONTNAME",    (0,1), (-1,-1), "Helvetica"),
+        ("FONTNAME",    (0,1), (-1,-1), CJK_FONT),
         ("FONTSIZE",    (0,1), (-1,-1), 8),
         ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
         ("GRID",        (0,0), (-1,-1), 0.4, colors.HexColor("#CCCCCC")),
