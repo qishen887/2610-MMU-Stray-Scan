@@ -1,0 +1,117 @@
+/* Shared night theme. Loaded after each page's own styles so standalone pages
+   follow the preference selected on the homepage. */
+html[data-theme="night"] {
+    color-scheme: dark;
+}
+
+html[data-theme="night"] body:not(.settings-page) {
+    color: #e5e7eb;
+}
+
+html[data-theme="night"] body:not(.settings-page) .card,
+html[data-theme="night"] body:not(.settings-page) .login-card,
+html[data-theme="night"] body:not(.settings-page) .container:not(.app-container) {
+    background-color: rgba(17, 24, 39, 0.96) !important;
+    color: #e5e7eb;
+    border-color: #374151;
+}
+
+html[data-theme="night"] body:not(.settings-page) .text-muted,
+html[data-theme="night"] body:not(.settings-page) .form-text,
+html[data-theme="night"] body:not(.settings-page) .record-meta {
+    color: #9ca3af !important;
+}
+
+html[data-theme="night"] body:not(.settings-page) input,
+html[data-theme="night"] body:not(.settings-page) select,
+html[data-theme="night"] body:not(.settings-page) textarea,
+html[data-theme="night"] body:not(.settings-page) .form-control,
+html[data-theme="night"] body:not(.settings-page) .form-select,
+html[data-theme="night"] body:not(.settings-page) .input-group .btn {
+    background-color: #111827 !important;
+    color: #f3f4f6 !important;
+    border-color: #4b5563 !important;
+}
+
+html[data-theme="night"] body:not(.settings-page) input::placeholder,
+html[data-theme="night"] body:not(.settings-page) textarea::placeholder {
+    color: #9ca3af;
+}
+
+html[data-theme="night"] body:not(.settings-page) .filter-bar,
+html[data-theme="night"] body:not(.settings-page) .no-image-placeholder,
+html[data-theme="night"] body:not(.settings-page) .health-option label,
+html[data-theme="night"] body:not(.settings-page) .toggle-btn {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+    border-color: #4b5563 !important;
+}
+
+html[data-theme="night"] body:not(.settings-page) .back-home {
+    background: #1f2937 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-theme="night"] body:not(.settings-page) .header h1,
+html[data-theme="night"] body:not(.settings-page) .header p,
+html[data-theme="night"] body:not(.settings-page) .form-group label,
+html[data-theme="night"] body:not(.settings-page) .success-message h2,
+html[data-theme="night"] body:not(.settings-page) .success-message p {
+    color: #e5e7eb !important;
+}
+
+html[data-theme="night"] body.settings-page {
+    background-color: #0b1120 !important;
+    color: #e5e7eb !important;
+}
+
+html[data-theme="night"] body.settings-page .settings-sidebar {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+}
+
+html[data-theme="night"] body.settings-page .settings-content {
+    background-color: #0b1120 !important;
+}
+
+html[data-theme="night"] body.settings-page .settings-content h1,
+html[data-theme="night"] body.settings-page .setting-opt h3,
+html[data-theme="night"] body.settings-page label {
+    color: #f3f4f6 !important;
+    border-color: #374151 !important;
+}
+
+html[data-theme="night"] body.settings-page .setting-opt,
+html[data-theme="night"] body.settings-page .setting-card,
+html[data-theme="night"] body.settings-page input,
+html[data-theme="night"] body.settings-page select,
+html[data-theme="night"] body.settings-page textarea {
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+    border-color: #4b5563 !important;
+}
+
+html[data-theme="night"] body.settings-page .setting-opt p,
+html[data-theme="night"] body.settings-page .settings-subtitle,
+html[data-theme="night"] body.settings-page .profile-label,
+html[data-theme="night"] body.settings-page .sidebar-item:not(.selected) {
+    color: #9ca3af !important;
+}
+
+html[data-theme="night"] body.settings-page .profile-value {
+    color: #e5e7eb !important;
+}
+
+html[data-theme="night"] body.settings-page .profile-row {
+    border-color: #374151 !important;
+}
+
+html[data-theme="night"] body.settings-page .secondary-btn {
+    background-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-theme="night"] body.settings-page .sidebar-item:not(.selected):hover {
+    background-color: #1f2937 !important;
+    color: #f3f4f6 !important;
+}
