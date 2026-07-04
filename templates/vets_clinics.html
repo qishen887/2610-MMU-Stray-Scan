@@ -3,11 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vet Clinics – Cyberjaya Stray Scan</title>
+    <title>Vet Clinics – MMU Stray Scan</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
+        /* style.css sets body,html { overflow:hidden; height:100% } for the
+           app-shell homepage. This page is standalone (not inside
+           #main-content), so override that here to allow normal scrolling. */
+        body, html {
+            overflow-y: auto;
+            height: auto;
+            min-height: 100%;
+        }
         .admin-bar {
             background: #f0f4ff;
             border: 1px solid #c9d6ff;
@@ -152,7 +160,11 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Operating Hours <span class="text-danger">*</span></label>
-                    <input type="text" name="operating_hours" class="form-control" value="{{ edit_clinic.operating_hours }}" required>
+                    <textarea name="operating_hours" class="form-control" rows="3" required>{{ edit_clinic.operating_hours }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Google Maps Link</label>
+                    <input type="url" name="google_map_link" class="form-control" value="{{ edit_clinic.google_map_link if edit_clinic.google_map_link else '' }}" placeholder="https://maps.google.com/...">
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Clinic Image</label>

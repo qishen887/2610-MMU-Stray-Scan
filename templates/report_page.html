@@ -33,8 +33,8 @@
             border: none;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            background-color: rgba(255, 255, 255, 0.9); /* 90% 不透明 */
-            backdrop-filter: blur(5px); /* 让背景模糊（高级感） */
+            background-color: rgba(255, 255, 255, 0.9); /* 90% opacity */
+            backdrop-filter: blur(5px); /* Blurs the background (premium feel) */
             overflow: hidden;
         }
 
@@ -316,9 +316,13 @@
                         </button>
                     </div>
 
-                    <!-- Manual input: name="address" so Flask reads it directly -->
-                    <div id="manualDiv">
-                        <input type="text" id="addressManual" placeholder="Please enter the detailed address" required>
+                    <!-- Manual input: user types, we suggest matching addresses via Nominatim -->
+                    <div id="manualDiv" style="position:relative;">
+                        <input type="text" id="addressManual" placeholder="Please enter the detailed address" autocomplete="off" required>
+                        <div id="addressSuggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1000;background:#fff;border:1px solid #e0e0e0;border-radius:10px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                        <p id="manualHintLabel" style="font-size:12px;color:#888;margin-top:6px;">
+                            Start typing and pick a suggested address, or keep typing your own.
+                        </p>
                     </div>
 
                     <!-- Map input: hidden fields submitted instead -->
@@ -414,6 +418,10 @@
                 // Manual mode: copy the typed value into addressHidden
                 document.getElementById('addressHidden').value =
                     document.getElementById('addressManual').value;
+                // If the user picked a suggestion (rather than typing freely and ignoring it),
+                // manualPickedLat/Lng were set — carry them into the same lat/lng fields the map uses.
+                document.getElementById('latitude').value  = manualPickedLat  || '';
+                document.getElementById('longitude').value = manualPickedLng || '';
             } 
 
             const form = this;
@@ -540,6 +548,83 @@
                 setTimeout(() => map.invalidateSize(), 100);
             }
         }
+
+        // ── Manual address autocomplete (Nominatim search via backend) ────────
+        let manualPickedLat = '';
+        let manualPickedLng = '';
+        let addressSearchTimer = null;
+        let addressSearchAbort = null;
+
+        const addressManualInput = document.getElementById('addressManual');
+        const suggestionsBox     = document.getElementById('addressSuggestions');
+
+        function hideSuggestions() {
+            suggestionsBox.style.display = 'none';
+            suggestionsBox.innerHTML = '';
+        }
+
+        function renderSuggestions(results) {
+            if (!results || results.length === 0) {
+                hideSuggestions();
+                return;
+            }
+            suggestionsBox.innerHTML = '';
+            results.forEach(function (result) {
+                const item = document.createElement('div');
+                item.textContent = result.address;
+                item.style.padding = '10px 12px';
+                item.style.cursor = 'pointer';
+                item.style.fontSize = '14px';
+                item.style.borderBottom = '1px solid #f0f0f0';
+                item.addEventListener('mouseenter', () => item.style.background = '#f5f5ff');
+                item.addEventListener('mouseleave', () => item.style.background = '#fff');
+                item.addEventListener('mousedown', function (ev) {
+                    // mousedown (not click) so this fires before the input's blur event
+                    ev.preventDefault();
+                    addressManualInput.value = result.address;
+                    manualPickedLat = result.lat || '';
+                    manualPickedLng = result.lon || '';
+                    hideSuggestions();
+                });
+                suggestionsBox.appendChild(item);
+            });
+            suggestionsBox.style.display = 'block';
+        }
+
+        addressManualInput.addEventListener('input', function () {
+            // Any manual edit invalidates a previously picked suggestion's coordinates
+            manualPickedLat = '';
+            manualPickedLng = '';
+
+            const query = addressManualInput.value.trim();
+            clearTimeout(addressSearchTimer);
+
+            if (query.length < 3) {
+                hideSuggestions();
+                return;
+            }
+
+            // Debounce so we don't hit Nominatim on every keystroke
+            addressSearchTimer = setTimeout(async function () {
+                if (addressSearchAbort) addressSearchAbort.abort();
+                addressSearchAbort = new AbortController();
+                try {
+                    const res = await fetch(
+                        `/search-address?q=${encodeURIComponent(query)}`,
+                        { signal: addressSearchAbort.signal }
+                    );
+                    const data = await res.json();
+                    renderSuggestions(data.results);
+                } catch (err) {
+                    if (err.name !== 'AbortError') hideSuggestions();
+                }
+            }, 400);
+        });
+
+        // Hide suggestions when clicking elsewhere
+        document.addEventListener('click', function (ev) {
+            if (ev.target !== addressManualInput) hideSuggestions();
+        });
     </script>
 </body>
 </html>
