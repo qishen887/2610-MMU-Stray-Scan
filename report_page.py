@@ -431,7 +431,6 @@ def change_password():
         flash("Please log in to change your password.")
         return redirect(url_for('show_login'))
 
-    current_password = request.form.get('current_password') or ''
     new_password = request.form.get('new_password') or ''
     confirm_password = request.form.get('confirm_password') or ''
 
@@ -440,10 +439,6 @@ def change_password():
         session.clear()
         flash("Session expired. Please log in again.")
         return redirect(url_for('show_login'))
-
-    if not check_password_hash(user.password, current_password):
-        flash("Current password is incorrect.")
-        return redirect(url_for('settings_page', tab='password'))
 
     if new_password != confirm_password:
         flash("New passwords do not match.")
