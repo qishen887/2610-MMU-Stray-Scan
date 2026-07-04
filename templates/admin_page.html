@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
     <title>Admin — Animal Reports</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -564,6 +565,7 @@
         .profile-logout:hover { color: var(--rejected); background: rgba(245,92,92,0.1); }
         .profile-logout.hidden { display: none; }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body>
 <div class="layout">
