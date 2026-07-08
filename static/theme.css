@@ -5,7 +5,10 @@ html[data-theme="night"] {
 }
 
 html[data-theme="night"] body:not(.settings-page) {
+    background: linear-gradient(160deg, #111827, #030712) !important;
+    background-attachment: fixed;
     color: #e5e7eb;
+    min-height: 100vh;
 }
 
 html[data-theme="night"] body:not(.settings-page) .card,
